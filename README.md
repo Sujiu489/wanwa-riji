@@ -6,7 +6,7 @@ BJD 娃娃 + 毛娘业务个人管理工作台（单文件 HTML，无任何外�
 
 由 **GitHub Pages** 永久托管，手机/电脑均可打开：
 
-> 本仓库开启 Pages 后，地址为 `https://sujiu489.github.io/-玩娃日记/`
+> **https://sujiu489.github.io/wanwa-riji/**
 
 ## 功能
 
