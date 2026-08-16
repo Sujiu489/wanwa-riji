@@ -1,0 +1,3343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#AFDBE6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="娃柜">
+<title>SuJiu的娃柜</title>
+<script>
+/* PWA 应用化：动态注入 manifest（图标为内联 SVG，无外部依赖） */
+(function(){
+  var icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
+    + '<rect width="512" height="512" rx="112" fill="#AFDBE6"/>'
+    + '<rect x="64" y="112" width="384" height="316" rx="36" fill="#427EA4"/>'
+    + '<rect x="88" y="136" width="148" height="268" rx="24" fill="#5F97BE"/>'
+    + '<circle cx="300" cy="212" r="44" fill="#F4F9FB"/>'
+    + '<path d="M212 356c22-40 70-56 100-32 26-24 66-14 82 24l14 32H200z" fill="#F2A6A6"/>'
+    + '</svg>';
+  var iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(icon);
+  var fav = document.createElement('link');
+  fav.rel = 'icon'; fav.href = iconUrl;
+  document.head.appendChild(fav);
+  var m = {
+    name: 'SuJiu的娃柜',
+    short_name: '娃柜',
+    start_url: location.pathname + location.search,
+    scope: location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1),
+    display: 'standalone',
+    background_color: '#F4F9FB',
+    theme_color: '#AFDBE6',
+    icons: [{ src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }]
+  };
+  var l = document.createElement('link');
+  l.rel = 'manifest';
+  l.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(m));
+  document.head.appendChild(l);
+})();
+</script>
+<style>
+:root{
+  --c-cyan:#AFDBE6;
+  --c-blue:#427EA4;
+  --c-dark:#1C4366;
+  --c-black:#01151C;
+  --c-purple:#1A153E;
+  --c-red:#E85A6F;
+  --c-red-soft:#FBE3E6;
+  --c-pink:#F2A6A6;
+  --c-pink-2:#F6BDC0;
+  --c-pink-soft:#FCE3E5;
+  --c-bg:#F4F9FB;
+  --c-line:#D7E5EC;
+  --c-text:#1C4366;
+  --c-text-2:#5F7C95;
+  --c-text-3:#97AEC0;
+  --shadow-card:0 4px 18px -8px rgba(28,67,102,.08);
+  --shadow-modal:0 24px 60px -20px rgba(1,21,28,.35);
+  --radius-card:18px;
+  --radius-btn:14px;
+  --tr-soft:.25s cubic-bezier(.4,0,.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--c-bg);color:var(--c-text);font-size:14px;-webkit-font-smoothing:antialiased}
+body{overscroll-behavior:none}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit;transition:all var(--tr-soft)}
+input,textarea,select{font-family:inherit;border:none;outline:none;background:none;color:inherit;font-size:15px}
+input[type=number]{-moz-appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+.app{display:flex;min-height:100vh;min-height:100dvh}
+.sidebar{
+  width:78px;background:linear-gradient(180deg,#FAFCFD 0%,#EAF3F7 100%);
+  border-right:1px dashed var(--c-line);
+  display:flex;flex-direction:column;align-items:center;
+  padding:18px 0 80px;position:fixed;top:0;left:0;bottom:0;z-index:50;
+  transition:transform var(--tr-soft);
+}
+.brand{
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,var(--c-cyan),#C9E6EE);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:18px;position:relative;overflow:hidden;
+  border:2px solid #fff;
+  box-shadow:0 4px 12px -4px rgba(28,67,102,.18);cursor:pointer;
+}
+.brand img{width:100%;height:100%;object-fit:cover}
+.brand .edit-badge{
+  position:absolute;right:-3px;bottom:-3px;width:22px;height:22px;
+  border-radius:50%;background:var(--c-red);
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid #fff;color:#fff;
+}
+.nav-list{flex:1;width:100%;display:flex;flex-direction:column;gap:6px;align-items:center;overflow-y:auto;padding:0 4px}
+.nav-list::-webkit-scrollbar{display:none}
+.nav-item{
+  width:60px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:8px 0;border-radius:14px;color:var(--c-text-2);
+  cursor:pointer;transition:all var(--tr-soft);position:relative;
+}
+.nav-item .ico-wrap{width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:all var(--tr-soft)}
+.nav-item .ico{width:22px;height:22px;fill:currentColor;transition:all var(--tr-soft)}
+.nav-item .label{font-size:11px;line-height:1;letter-spacing:.5px;transition:all var(--tr-soft)}
+.nav-item:hover{color:var(--c-blue);background:rgba(175,219,230,.2)}
+.nav-item:hover .ico{transform:scale(1.1)}
+.nav-item.active{color:var(--c-blue);background:rgba(66,126,164,.08)}
+.nav-item.active::before{
+  content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:3px;height:24px;background:var(--c-blue);border-radius:2px;
+}
+.main{
+  flex:1;min-width:0;margin-left:78px;
+  background:var(--c-bg);min-height:100vh;min-height:100dvh;
+}
+.mobile-header{
+  display:none;position:sticky;top:0;z-index:30;
+  background:rgba(244,249,251,.95);backdrop-filter:blur(10px);
+  border-bottom:1px dashed var(--c-line);
+  padding:12px 16px;align-items:center;gap:12px;
+}
+.mobile-header .menu-btn{
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  border-radius:12px;background:#fff;color:var(--c-dark);
+}
+.mobile-header .menu-btn:hover{background:var(--c-cyan)}
+.mobile-header .title{font-size:16px;font-weight:600;color:var(--c-dark);flex:1;display:flex;align-items:center;gap:8px}
+.mobile-header .title svg{flex-shrink:0}
+.mobile-header .right{display:flex;gap:8px}
+.icon-btn{
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  border-radius:12px;background:#fff;color:var(--c-dark);transition:all var(--tr-soft);
+}
+.icon-btn:hover{background:var(--c-cyan);transform:translateY(-1px)}
+.icon-btn:active{transform:scale(.95)}
+.page{max-width:780px;margin:0 auto;padding:24px 24px 80px;animation:fadeUp .35s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.page-head{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.page-head h1{font-size:22px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:8px}
+.page-head .sub{margin-left:auto;font-size:13px;color:var(--c-text-3)}
+.search-bar{
+  background:#fff;border-radius:var(--radius-btn);
+  padding:10px 14px;display:flex;align-items:center;gap:10px;
+  border:1px solid transparent;margin-bottom:14px;
+  transition:all var(--tr-soft);box-shadow:var(--shadow-card);
+}
+.search-bar:focus-within{border-color:var(--c-blue);box-shadow:0 0 0 4px rgba(66,126,164,.1)}
+.search-bar input{flex:1;background:transparent}
+.search-bar svg{color:var(--c-text-3);flex-shrink:0}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 18px;border-radius:var(--radius-btn);
+  font-size:14px;font-weight:500;transition:all var(--tr-soft);white-space:nowrap;min-height:44px;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:scale(.97) !important}
+.btn-primary{background:var(--c-blue);color:#fff;box-shadow:0 6px 16px -4px rgba(66,126,164,.45)}
+.btn-primary:hover{box-shadow:0 10px 22px -4px rgba(66,126,164,.6);background:#518cb1}
+.btn-ghost{background:rgba(175,219,230,.4);color:var(--c-dark)}
+.btn-ghost:hover{background:rgba(175,219,230,.7)}
+.btn-outline{background:transparent;color:var(--c-dark);border:1px solid var(--c-line)}
+.btn-outline:hover{background:var(--c-cyan);border-color:var(--c-blue)}
+.btn-text{color:var(--c-blue);padding:6px 10px;min-height:auto}
+.btn-text:hover{color:var(--c-dark)}
+.tabs{
+  display:inline-flex;background:#fff;
+  padding:5px;border-radius:16px;gap:4px;margin-bottom:14px;
+  box-shadow:var(--shadow-card);border:1px solid var(--c-line);
+}
+.tabs button{
+  padding:9px 22px;border-radius:11px;
+  color:var(--c-text-2);font-size:14px;font-weight:500;transition:all var(--tr-soft);
+}
+.tabs button:hover{color:var(--c-dark)}
+.tabs button.active{background:var(--c-blue);color:#fff;box-shadow:0 4px 12px -4px rgba(66,126,164,.4)}
+.select{
+  appearance:none;-webkit-appearance:none;
+  background:#fff;border-radius:12px;padding:9px 36px 9px 14px;
+  border:1px solid var(--c-line);color:var(--c-dark);font-size:14px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='%231C4366'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;
+  cursor:pointer;transition:all var(--tr-soft);min-height:44px;
+}
+.select:hover{border-color:var(--c-blue)}
+.select:focus{border-color:var(--c-blue);box-shadow:0 0 0 3px rgba(66,126,164,.1)}
+.card{background:#fff;border-radius:var(--radius-card);padding:16px 18px;box-shadow:var(--shadow-card);transition:all var(--tr-soft)}
+.card.clickable{cursor:pointer}
+.card.clickable:hover{transform:translateY(-2px);box-shadow:0 10px 28px -12px rgba(28,67,102,.18)}
+.card.clickable:active{transform:scale(.99)}
+.dashed-divider{border:none;border-top:1px dashed var(--c-line);margin:14px 0}
+/* 云端同步状态胶囊：连接/未连接明显区分 */
+.sync-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;padding:4px 10px;border-radius:999px;line-height:1.2;white-space:nowrap;border:1px solid transparent}
+.sync-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.sync-badge.on{background:rgba(58,110,88,.1);color:#3A6E58;border-color:rgba(58,110,88,.25)}
+.sync-badge.off{background:rgba(95,124,149,.1);color:#5F7C95;border-color:rgba(95,124,149,.25)}
+.sync-badge.err{background:#FBE3E6;color:#C2455A;border-color:rgba(194,69,90,.25)}
+.sync-badge.busy{background:rgba(66,126,164,.1);color:var(--c-blue);border-color:rgba(66,126,164,.25)}
+.sync-badge.busy .dot{animation:syncPulse 1s infinite}
+@keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.3}}
+.sync-form-row{margin-bottom:10px}
+.sync-form-row label{display:block;font-size:12px;color:var(--c-text-2);margin-bottom:5px;font-weight:500}
+.sync-form-row input{width:100%;box-sizing:border-box;background:#fff;border:1px solid var(--c-line);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--c-dark);min-height:42px;transition:all var(--tr-soft)}
+.sync-form-row input:focus{outline:none;border-color:var(--c-blue);box-shadow:0 0 0 3px rgba(66,126,164,.1)}
+.empty{text-align:center;padding:50px 20px;color:var(--c-text-3)}
+.empty p{font-size:14px}
+.section-title{font-size:16px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:8px;margin:18px 0 12px}
+.home-hero{
+  text-align:center;padding:30px 20px 22px;
+  background:#fff;
+  border-radius:24px;margin-bottom:14px;border:1px dashed var(--c-line);position:relative;
+}
+.home-hero .avatar{
+  width:74px;height:74px;margin:0 auto 12px;border-radius:50%;overflow:hidden;
+  border:3px dashed rgba(175,219,230,.85);background:linear-gradient(135deg,var(--c-cyan),#C9E6EE);
+  position:relative;box-shadow:0 6px 20px -8px rgba(28,67,102,.18);cursor:pointer;
+}
+.home-hero .avatar img{width:100%;height:100%;object-fit:cover}
+.home-hero .avatar-edit{
+  position:absolute;right:-2px;bottom:-2px;width:24px;height:24px;
+  border-radius:50%;background:var(--c-blue);color:#fff;
+  border:2px solid #fff;display:flex;align-items:center;justify-content:center;
+}
+.home-hero h1{font-size:24px;font-weight:600;color:var(--c-blue);margin-bottom:6px;letter-spacing:.5px}
+.home-hero .tip{font-size:13px;color:var(--c-text-2)}
+.home-hero .tip b{color:var(--c-pink);font-weight:600;margin:0 2px}
+.home-stats{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;
+}
+.home-stats .stat-card{
+  background:#fff;border-radius:24px;padding:18px 14px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  border:1px dashed var(--c-line);transition:all var(--tr-soft);cursor:pointer;
+}
+.home-stats .stat-card:hover{border-color:var(--c-blue);transform:translateY(-2px);box-shadow:0 10px 24px -10px rgba(66,126,164,.25)}
+.home-stats .stat-icon{
+  width:38px;height:38px;border-radius:50%;background:rgba(175,219,230,.25);
+  display:flex;align-items:center;justify-content:center;color:var(--c-blue);flex-shrink:0;
+}
+.home-stats .stat-icon svg{width:20px;height:20px}
+.home-stats .stat-label{font-size:14px;color:var(--c-text-2);font-weight:500}
+.home-stats .stat-value{font-size:20px;color:var(--c-pink);font-weight:600;font-feature-settings:"tnum"}
+.total-card{
+  background:#fff;border-radius:22px;padding:24px 18px;text-align:center;margin-bottom:14px;
+  border:1px dashed var(--c-line);
+}
+.total-card .label{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--c-text-2);margin-bottom:6px}
+.total-card .value{font-size:42px;font-weight:600;color:var(--c-pink);font-feature-settings:"tnum";letter-spacing:1px}
+.jump-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.jump-card{
+  background:#fff;border-radius:18px;padding:14px 16px;
+  display:flex;align-items:center;gap:14px;
+  box-shadow:var(--shadow-card);transition:all var(--tr-soft);cursor:pointer;border:1px solid transparent;
+}
+.jump-card:hover{transform:translateY(-2px);border-color:var(--c-cyan)}
+.jump-card:active{transform:scale(.99)}
+.jump-card .ic{
+  width:44px;height:44px;border-radius:12px;background:rgba(175,219,230,.4);
+  display:flex;align-items:center;justify-content:center;color:var(--c-blue);flex-shrink:0;
+}
+.jump-card .info{flex:1;min-width:0}
+.jump-card .name{font-size:15px;font-weight:500;color:var(--c-dark)}
+.jump-card .desc{font-size:12px;color:var(--c-text-3);margin-top:2px}
+.jump-card .arrow{color:var(--c-text-3);transition:transform var(--tr-soft)}
+.jump-card:hover .arrow{transform:translateX(3px);color:var(--c-blue)}
+.price-stats{background:#fff;border-radius:20px;padding:18px 18px 14px;border:1px dashed var(--c-line)}
+.price-stats h3{font-size:15px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.price-block{background:#fff;border-radius:20px;padding:18px 18px 14px;margin-bottom:12px;border:1px dashed var(--c-line)}
+.price-block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.price-block-head .name{font-size:15px;color:var(--c-dark);font-weight:500;display:flex;align-items:center;gap:6px}
+.price-block-head .dot{width:8px;height:8px;border-radius:50%;background:var(--c-blue);display:inline-block}
+.price-block-head .count{font-size:12px;color:var(--c-text-3)}
+.price-block .rows{display:flex;flex-direction:column}
+.price-block .rows .row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;border-bottom:1px dashed var(--c-line);font-size:13px;
+}
+.price-block .rows .row:last-child{border-bottom:none}
+.price-block .rows .row .label{color:var(--c-text-2)}
+.price-block .rows .row .val{color:var(--c-pink);font-weight:600;font-feature-settings:"tnum";font-size:15px}
+.price-stat{background:#fff;border-radius:18px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border:1px dashed var(--c-line);margin-bottom:10px}
+.price-stat .name{font-size:13px;color:var(--c-text-2);display:flex;align-items:center;gap:6px}
+.price-stat .val{font-weight:600;color:var(--c-pink);font-feature-settings:"tnum";font-size:15px}
+.clothes-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.clothes-head .search-bar{flex:1;margin-bottom:0}
+.link-btn{
+  color:var(--c-dark);font-size:13px;font-weight:500;
+  display:inline-flex;align-items:center;gap:4px;
+  padding:8px 12px;border-radius:10px;transition:all var(--tr-soft);flex-shrink:0;
+  background:rgba(175,219,230,.35);
+}
+.link-btn:hover{background:var(--c-cyan);color:var(--c-blue)}
+.link-btn:active{transform:scale(.96)}
+.filter-bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-bar .label{font-size:13px;color:var(--c-text-2)}
+.cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
+.cat-grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.cat-card{
+  background:#fff;border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow-card);cursor:pointer;transition:all var(--tr-soft);position:relative;
+}
+.cat-card:hover{transform:translateY(-3px);box-shadow:0 12px 28px -12px rgba(28,67,102,.22)}
+.cat-card:active{transform:scale(.98)}
+.cat-card .thumb{
+  height:88px;background:linear-gradient(135deg,#D2E8F0,#A8C9D6);
+  display:flex;align-items:center;justify-content:center;color:#fff;position:relative;overflow:hidden;
+}
+.cat-card .thumb svg{width:42px;height:42px;opacity:.95;fill:#fff}
+.cat-card .thumb.bg-1{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-2{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-3{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-4{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-5{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-6{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-7{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-8{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .thumb.bg-9{background:linear-gradient(135deg,#C6E0EA,#A3C6D6)}
+.cat-card .info{padding:10px 12px;text-align:center}
+.cat-card .info .nm{font-size:14px;font-weight:500;color:var(--c-dark)}
+.cat-card .info .ct{font-size:12px;color:var(--c-text-3);margin-top:2px}
+.cloth-item{
+  background:#fff;border-radius:18px;padding:14px;
+  margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;
+  box-shadow:var(--shadow-card);position:relative;
+}
+.cloth-check{
+  position:absolute;left:14px;top:14px;width:22px;height:22px;border-radius:7px;
+  border:1.5px solid var(--c-line);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all var(--tr-soft);background:#fff;z-index:2;
+}
+.cloth-check:hover{border-color:var(--c-blue);transform:scale(1.05)}
+.cloth-check.on{background:var(--c-blue);border-color:var(--c-blue);color:#fff}
+.cloth-item .thumb{
+  width:72px;height:72px;border-radius:16px;
+  background:linear-gradient(135deg,#D2E8F0,#A8C9D6);
+  flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-top:24px;
+}
+.cloth-item .thumb.bg-1{background:linear-gradient(135deg,#E4F0F5,#C4DDE6)}
+.cloth-item .thumb.bg-2{background:linear-gradient(135deg,#B6D6E2,#7FAEC4)}
+.cloth-item .thumb.bg-3{background:linear-gradient(135deg,#9CC2D6,#6A95B0)}
+.cloth-item .thumb.bg-4{background:linear-gradient(135deg,#7EAAC4,#4E7A99)}
+.cloth-item .thumb.bg-5{background:linear-gradient(135deg,#6794B2,#36627F)}
+.cloth-item .thumb img{width:100%;height:100%;object-fit:cover}
+.cloth-item .thumb .ic{color:#fff;width:30px;height:30px;fill:#fff}
+.cloth-item .body{flex:1;min-width:0;padding-top:24px}
+.cloth-item .nm{font-size:14px;color:var(--c-dark);font-weight:500}
+.cloth-item .meta{font-size:11px;color:var(--c-text-3);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap}
+.cloth-item .tag{padding:2px 8px;background:rgba(175,219,230,.4);border-radius:8px;color:var(--c-dark);font-size:11px}
+.cloth-item .tag.shipped{background:rgba(175,219,230,.55);color:var(--c-dark)}
+.cloth-item .tag.not-shipped{background:#FDE6EA;color:#C2455A}
+.cloth-item .tag.paid{background:#DDEAE5;color:#3A6E58}
+.cloth-item .tag.unpaid{background:#FBE3E6;color:#E08592}
+.cloth-item .price{font-size:15px;font-weight:600;color:var(--c-pink);margin-top:6px;font-feature-settings:"tnum"}
+.cloth-item .actions{display:flex;gap:6px;flex-shrink:0;padding-top:24px}
+.cloth-item .act-btn{
+  width:32px;height:32px;border-radius:10px;background:rgba(175,219,230,.3);
+  display:flex;align-items:center;justify-content:center;color:var(--c-dark);transition:all var(--tr-soft);
+}
+.cloth-item .act-btn:hover{background:var(--c-cyan);color:var(--c-blue)}
+.cloth-item .act-btn.danger:hover{background:#FBE3E6;color:var(--c-red)}
+
+/* === 橱窗分类详情子页面（按 微信图片_...jpg） === */
+.cat-detail-head{display:flex;align-items:center;gap:12px;padding:8px 4px 6px}
+.cat-detail-head .back-btn{width:36px;height:36px;border-radius:50%;background:#fff;color:var(--c-dark);border:1px solid var(--c-line);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--shadow-soft)}
+.cat-detail-head .back-btn:hover{background:var(--c-cyan);border-color:var(--c-blue);color:var(--c-blue)}
+.cat-detail-head .cat-detail-icon{width:36px;height:36px;color:var(--c-blue);flex-shrink:0}
+.cat-detail-head .cat-detail-icon svg{width:30px;height:30px}
+.cat-detail-head .cat-detail-title{font-size:18px;font-weight:600;color:var(--c-dark)}
+.cat-detail-sub{font-size:12px;color:var(--c-text-3);padding:0 4px 12px;border-bottom:1px dashed var(--c-line);margin-bottom:14px}
+.cat-detail-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding-bottom:80px}
+.cat-detail-list .empty{grid-column:1/-1}
+.cat-detail-item{background:#fff;border-radius:16px;padding:10px;box-shadow:var(--shadow-card);cursor:pointer;transition:transform var(--tr-soft);display:flex;flex-direction:column;min-width:0}
+.cat-detail-item:hover{transform:translateY(-2px)}
+.cat-detail-item:active{transform:scale(.99)}
+.cat-thumb{position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden;background:linear-gradient(135deg,#E4F0F5,#C4DDE6)}
+.cat-thumb img{width:100%;height:100%;object-fit:cover}
+.cat-thumb svg{width:34px;height:34px;fill:#fff;opacity:.95}
+.cat-thumb .pay-pill{position:absolute;top:6px;right:6px;padding:3px 7px;border-radius:10px;font-size:10px;font-weight:500;background:#FBD7DB;color:#C2455A;line-height:1}
+.cat-thumb .pay-pill.paid{background:#DDEAE5;color:#3A6E58}
+.cat-item-body{padding-top:8px;min-width:0}
+.cat-item-name{font-size:13px;font-weight:500;color:var(--c-dark);display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1.35}
+.cat-item-name .ship-pill{font-size:10px;padding:2px 6px;border-radius:7px;font-weight:400}
+.cat-item-name .ship-pill.shipped{background:rgba(175,219,230,.55);color:var(--c-dark)}
+.cat-item-name .ship-pill.not-shipped{background:#FDE6EA;color:#C2455A}
+.cat-item-meta{font-size:10px;color:var(--c-text-3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-item-price{font-size:13px;font-weight:600;color:var(--c-pink);margin-top:4px;font-feature-settings:"tnum"}
+.add-item-fab{position:fixed;right:18px;bottom:24px;width:52px;height:52px;border-radius:50%;background:var(--c-dark);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 24px -8px rgba(28,67,102,.45);z-index:50}
+.add-item-fab:hover{background:var(--c-blue)}
+.add-item-fab svg{width:22px;height:22px;fill:#fff}
+
+/* === 新版衣服陈列（按衣服2.png） === */
+.cloth-list-card{
+  background:#fff;border-radius:16px;padding:18px 20px;
+  margin-bottom:12px;display:flex;gap:16px;align-items:center;
+  box-shadow:var(--shadow-card);position:relative;
+}
+.cloth-list-card .lc-thumb{
+  width:72px;height:72px;border-radius:14px;flex-shrink:0;
+  background:linear-gradient(135deg,#E8F2F7,#D5E5EE);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;color:#7FA6BC;
+}
+.cloth-list-card .lc-thumb img{width:100%;height:100%;object-fit:cover}
+.cloth-list-card .lc-thumb svg{width:36px;height:36px}
+.cloth-list-card .lc-info{flex:1;min-width:0}
+.cloth-list-card .lc-row1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.cloth-list-card .lc-name{font-size:15px;font-weight:600;color:var(--c-dark)}
+.cloth-list-card .lc-pill{
+  font-size:11px;padding:2px 10px;border-radius:20px;font-weight:500;
+}
+.cloth-list-card .lc-pill.paid{background:#D9EAE0;color:#3D7558}
+.cloth-list-card .lc-pill.unpaid{background:#FBE3E6;color:#E08592}
+.cloth-list-card .lc-desc{font-size:12px;color:var(--c-text-3);margin-bottom:8px;line-height:1.4}
+.cloth-list-card .lc-price-row{
+  display:flex;gap:14px;align-items:baseline;
+  border-top:1px dashed var(--c-line);padding-top:8px;
+}
+.cloth-list-card .lc-price-col{flex:1;text-align:center}
+.cloth-list-card .lc-price-col .l{font-size:11px;color:var(--c-text-3);margin-bottom:2px}
+.cloth-list-card .lc-price-col .v{font-size:14px;font-weight:600;color:var(--c-pink);font-feature-settings:"tnum"}
+.cloth-list-card .lc-check{
+  flex-shrink:0;width:60px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:6px;border-radius:14px;background:#F4F9FB;
+  border:1.5px dashed var(--c-line);cursor:pointer;
+  transition:all var(--tr-soft);font-size:11px;color:var(--c-text-3);
+}
+.cloth-list-card .lc-check:hover{border-color:var(--c-blue);background:#E8F2F7}
+.cloth-list-card .lc-check.on{
+  background:var(--c-blue);color:#fff;border-style:solid;border-color:var(--c-blue);
+}
+.cloth-list-card .lc-check .lc-check-box{
+  width:24px;height:24px;border-radius:7px;background:#fff;
+  display:flex;align-items:center;justify-content:center;color:var(--c-blue);
+}
+.cloth-list-card .lc-check.on .lc-check-box{background:#fff;color:var(--c-blue)}
+.cloth-group-head{
+  display:flex;align-items:center;gap:8px;padding:8px 4px;
+  font-size:14px;color:var(--c-dark);font-weight:500;margin-top:8px;
+}
+.cloth-group-head .tag-count{font-size:11px;color:var(--c-text-3)}
+.cloth-group-head .tag-price{margin-left:auto;font-size:11px;color:var(--c-text-2)}
+.body-section{margin-bottom:20px}
+.body-section h3{font-size:16px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.body-list{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 14px;scroll-snap-type:x mandatory}
+.body-list::-webkit-scrollbar{display:none}
+.body-card{
+  flex-shrink:0;width:120px;background:#fff;border-radius:16px;
+  box-shadow:var(--shadow-card);overflow:hidden;scroll-snap-align:start;cursor:pointer;transition:all var(--tr-soft);
+}
+.body-card:hover{transform:translateY(-3px)}
+.body-card .pic{
+  height:120px;background:linear-gradient(135deg,var(--c-cyan),#C9E6EE);
+  display:flex;align-items:center;justify-content:center;color:#fff;
+}
+.body-card .pic.bg-2{background:linear-gradient(135deg,#FCD9DF,#F8B8C4)}
+.body-card .pic.bg-3{background:linear-gradient(135deg,#DDE9F0,#B7CCD9)}
+.body-card .pic.bg-4{background:linear-gradient(135deg,#EFE0F3,#D8BDDD)}
+.body-card .pic img{width:100%;height:100%;object-fit:cover}
+.body-card .info{padding:8px 10px;text-align:center}
+.body-card .info .nm{font-size:13px;font-weight:500;color:var(--c-dark)}
+.body-card .info .ct{font-size:11px;color:var(--c-text-3);margin-top:2px}
+
+/* === 新版体子（按体子1.png） === */
+.body-section-head{
+  display:flex;align-items:center;gap:10px;padding:8px 4px;margin-bottom:14px;
+}
+.body-section-head .bsh-icon{color:var(--c-blue);display:flex;align-items:center}
+.body-section-head .bsh-title{font-size:16px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:6px}
+.body-section-head .bsh-count{
+  font-size:12px;background:#F4F9FB;color:var(--c-text-2);
+  padding:3px 10px;border-radius:20px;font-feature-settings:"tnum";
+}
+.body-section-head .bsh-actions{margin-left:auto;display:flex;gap:8px}
+.body-section-head .bsh-actions .ib{
+  width:36px;height:36px;border-radius:12px;background:#fff;color:var(--c-dark);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-card);transition:all var(--tr-soft);border:1px solid var(--c-line);
+}
+.body-section-head .bsh-actions .ib:hover{background:var(--c-cyan);color:var(--c-blue)}
+.body-section-head .bsh-actions .add-btn{
+  width:auto;padding:0 16px;background:var(--c-blue);color:#fff;
+  box-shadow:0 4px 12px -4px rgba(66,126,164,.4);gap:4px;
+}
+.body-section-head .bsh-actions .add-btn:hover{background:#518cb1;color:#fff}
+
+.body-card-new{
+  background:#fff;border-radius:18px;
+  box-shadow:var(--shadow-card);overflow:hidden;
+  margin-bottom:14px;cursor:pointer;transition:all var(--tr-soft);
+}
+.body-card-new:hover{transform:translateY(-2px);box-shadow:0 10px 24px -10px rgba(28,67,102,.18)}
+.body-card-new .bc-top{
+  display:flex;gap:14px;padding:18px 18px 14px;align-items:flex-start;
+}
+.body-card-new .bc-thumb{
+  width:64px;height:64px;border-radius:14px;flex-shrink:0;
+  background:#F4F9FB;border:1.5px dashed var(--c-line);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;color:#7FA6BC;
+}
+.body-card-new .bc-thumb img{width:100%;height:100%;object-fit:cover}
+.body-card-new .bc-meta{flex:1;min-width:0}
+.body-card-new .bc-name{font-size:16px;font-weight:600;color:var(--c-dark);margin-bottom:6px}
+.body-card-new .bc-tags{display:flex;gap:6px;flex-wrap:wrap}
+.body-card-new .bc-tags .pill{
+  font-size:11px;padding:2px 10px;border-radius:20px;font-weight:500;
+}
+.body-card-new .bc-tags .pill.size{background:rgba(175,219,230,.4);color:var(--c-dark)}
+.body-card-new .bc-tags .pill.mine{background:#D9EAE0;color:#3D7558}
+.body-card-new .bc-tags .pill.other{background:#FAEFE6;color:#A66E4D}
+.body-card-new .bc-edit{
+  align-self:flex-start;
+  font-size:12px;color:var(--c-text-3);
+  padding:4px 10px;border-radius:8px;
+  background:rgba(175,219,230,.25);transition:all var(--tr-soft);
+}
+.body-card-new .bc-edit:hover{background:var(--c-cyan);color:var(--c-blue)}
+.body-card-new .bc-fields{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:8px;padding:0 18px 18px;
+}
+.body-card-new .bc-field{
+  background:#F4F9FB;border-radius:10px;padding:8px 10px;text-align:center;
+  border:1px dashed var(--c-line);
+}
+.body-card-new .bc-field .fl{font-size:11px;color:var(--c-text-3);margin-bottom:2px}
+.body-card-new .bc-field .fv{font-size:14px;font-weight:600;color:var(--c-dark);font-feature-settings:"tnum"}
+.body-card-new .bc-divider{border-top:1px dashed var(--c-line);margin:0 18px}
+
+.body-empty{
+  text-align:center;padding:50px 20px;color:var(--c-text-3);
+  background:#fff;border-radius:18px;margin-bottom:14px;border:1.5px dashed var(--c-line);
+}
+.body-empty .be-icon{
+  width:64px;height:64px;margin:0 auto 12px;border-radius:50%;
+  background:rgba(175,219,230,.4);display:flex;align-items:center;justify-content:center;color:var(--c-blue);
+}
+.body-empty p{font-size:13px}
+.compare-panel{background:#fff;border-radius:18px;padding:16px;box-shadow:var(--shadow-card)}
+.compare-panel.collapsed{padding-bottom:8px}
+.compare-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer;user-select:none}
+.compare-head h4{font-size:14px;font-weight:500;color:var(--c-dark);flex:1;display:flex;align-items:center;gap:6px}
+.compare-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.compare-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:20px;
+  background:rgba(175,219,230,.3);color:var(--c-dark);font-size:12px;
+  cursor:pointer;transition:all var(--tr-soft);border:1.5px solid transparent;
+}
+.compare-tag:hover{background:rgba(175,219,230,.6)}
+.compare-tag.on{background:rgba(66,126,164,.1);border-color:var(--c-blue);color:var(--c-blue)}
+.compare-table{width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;font-size:12px;border:1px dashed var(--c-line)}
+.compare-table th,.compare-table td{padding:8px;border-bottom:1px dashed var(--c-line);text-align:center;color:var(--c-dark)}
+.compare-table thead th{background:rgba(175,219,230,.3);font-weight:600}
+.compare-table tbody tr:last-child td{border-bottom:none}
+.compare-empty{text-align:center;padding:30px 12px;color:var(--c-text-3);font-size:13px}
+.wishlist{margin-bottom:18px}
+.wish-item{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:#fff;border-radius:14px;margin-bottom:8px;
+  box-shadow:var(--shadow-card);transition:all var(--tr-soft);cursor:pointer;
+}
+.wish-item:hover{transform:translateX(2px)}
+.wish-item .ic{
+  width:36px;height:36px;border-radius:10px;background:rgba(175,219,230,.4);
+  display:flex;align-items:center;justify-content:center;color:var(--c-blue);flex-shrink:0;
+}
+.wish-item .body{flex:1;min-width:0}
+.wish-item .nm{font-size:14px;font-weight:500;color:var(--c-dark)}
+.wish-item .meta{font-size:11px;color:var(--c-text-3);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.wish-item .price{color:var(--c-pink);font-weight:600;font-size:13px;flex-shrink:0}
+.calendar{background:#fff;border-radius:20px;padding:18px;box-shadow:var(--shadow-card)}
+.calendar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:0 4px}
+.calendar-head h3{font-size:16px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:6px}
+.calendar-nav{display:flex;gap:6px}
+.calendar-nav button{
+  width:32px;height:32px;border-radius:10px;
+  background:#fff;color:var(--c-dark);border:1px solid var(--c-line);
+  display:flex;align-items:center;justify-content:center;
+  transition:all var(--tr-soft);
+}
+.calendar-nav button:hover{background:var(--c-cyan);color:var(--c-blue);border-color:var(--c-blue)}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.calendar-dow{text-align:center;font-size:12px;color:var(--c-text-3);padding:6px 0;font-weight:500}
+.calendar-day{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  border-radius:10px;font-size:13px;color:var(--c-dark);
+  background:#fff;border:1px solid var(--c-line);
+  transition:all var(--tr-soft);cursor:pointer;position:relative;
+}
+.calendar-day:hover{background:rgba(175,219,230,.5);border-color:var(--c-blue)}
+.calendar-day.muted{color:var(--c-text-3);opacity:.35;background:transparent;border-color:transparent}
+.calendar-day.today{background:var(--c-blue);color:#fff;font-weight:600;border-color:var(--c-blue)}
+.calendar-day.has::after{
+  content:'';position:absolute;bottom:5px;left:50%;transform:translateX(-50%);
+  width:4px;height:4px;border-radius:50%;background:var(--c-red);
+}
+.calendar-day.today.has::after{background:#fff}
+
+/* === 想买列表（按日历1.png） === */
+.wish-section-title{
+  display:flex;align-items:center;gap:8px;margin:18px 0 12px;
+  font-size:16px;font-weight:600;color:var(--c-dark);
+}
+.wish-section-title .ico{color:var(--c-blue)}
+.wish-add-btn{
+  margin-left:auto;background:var(--c-blue);color:#fff;
+  padding:8px 16px;border-radius:12px;display:flex;align-items:center;gap:4px;
+  font-size:13px;font-weight:500;min-height:36px;
+  box-shadow:0 4px 12px -4px rgba(66,126,164,.4);
+  transition:all var(--tr-soft);
+}
+.wish-add-btn:hover{background:#518cb1;transform:translateY(-1px)}
+.wish-day-group{margin-bottom:14px}
+.wish-day-head{
+  display:flex;align-items:center;gap:6px;font-size:13px;
+  color:var(--c-blue);font-weight:500;margin-bottom:8px;
+}
+.wish-day-head::before{content:'';width:0;height:0}
+.wish-item-new{
+  background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:10px;
+  box-shadow:var(--shadow-card);cursor:pointer;transition:all var(--tr-soft);
+  position:relative;
+}
+.wish-item-new:hover{transform:translateX(2px)}
+.wish-item-new .wi-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.wish-item-new .wi-dot{
+  width:10px;height:10px;border-radius:50%;background:var(--c-cyan);flex-shrink:0;
+}
+.wish-item-new .wi-name{font-size:14px;font-weight:500;color:var(--c-dark);flex:1;min-width:0}
+.wish-item-new .wi-price{font-size:14px;font-weight:600;color:var(--c-pink);font-feature-settings:"tnum"}
+.wish-item-new .wi-meta{font-size:12px;color:var(--c-text-3);padding-left:20px;line-height:1.5}
+.notes-head{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.notes-head h2{flex:1;font-size:20px;color:var(--c-dark);font-weight:600;display:flex;align-items:center;gap:8px}
+.notes-add-btn{
+  background:var(--c-blue);color:#fff;padding:10px 18px;border-radius:14px;
+  display:flex;align-items:center;gap:6px;font-weight:500;transition:all var(--tr-soft);
+  box-shadow:0 6px 16px -4px rgba(66,126,164,.45);
+}
+.notes-add-btn:hover{background:#518cb1;transform:translateY(-1px);box-shadow:0 10px 24px -4px rgba(66,126,164,.55)}
+.notes-add-btn:active{transform:scale(.97)}
+.notes-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:80px;
+}
+.note-card{
+  border-radius:14px;padding:14px;cursor:pointer;transition:all var(--tr-soft);
+  box-shadow:0 4px 14px -6px rgba(28,67,102,.12);position:relative;min-height:130px;
+  word-break:break-word;overflow-wrap:break-word;
+}
+.note-card:hover{transform:translateY(-3px) rotate(-1deg);box-shadow:0 10px 24px -8px rgba(28,67,102,.2)}
+.note-card .body{font-size:13px;line-height:1.6;color:var(--c-dark)}
+.note-card .body b{font-weight:700}
+.note-card .body u{text-decoration:underline;text-decoration-color:var(--c-blue)}
+.note-card .body i{font-style:italic}
+.note-card .body .todo{display:flex;align-items:center;gap:5px;margin:2px 0}
+.note-card .body .todo::before{content:'☐';color:var(--c-blue)}
+.note-card .body .todo.done{color:var(--c-text-3);text-decoration:line-through}
+.note-card .body .todo.done::before{content:'☑';color:var(--c-blue)}
+.note-card .toolbar{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.note-card:hover .toolbar{opacity:1}
+.note-card .toolbar button{
+  width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.7);
+  display:flex;align-items:center;justify-content:center;color:var(--c-dark);
+}
+.note-card .toolbar button:hover{background:#fff;color:var(--c-blue)}
+.notes-empty{text-align:center;padding:60px 20px;color:var(--c-text-3)}
+.notes-empty p{margin-bottom:20px}
+.notes-empty .ic{
+  width:80px;height:80px;margin:0 auto 16px;border-radius:18px;
+  background:rgba(175,219,230,.35);display:flex;align-items:center;justify-content:center;color:var(--c-blue);
+}
+.mao-section{background:#fff;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow-card)}
+.mao-section h3{font-size:16px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:8px}
+.mao-section .summary{font-size:12px;background:rgba(175,219,230,.35);padding:3px 12px;border-radius:20px;color:var(--c-text-2);font-weight:500}
+.mao-section .ctrl{margin-left:auto;display:flex;gap:8px}
+.mao-section .ctrl .ib{
+  width:36px;height:36px;border-radius:12px;background:#fff;color:var(--c-dark);
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--c-line);
+  box-shadow:var(--shadow-card);transition:all var(--tr-soft);
+}
+.mao-section .ctrl .ib:hover{background:var(--c-cyan);color:var(--c-blue);border-color:var(--c-blue)}
+.mao-section .ctrl .add-btn{
+  width:auto;padding:0 16px;background:var(--c-blue);color:#fff;
+  box-shadow:0 4px 12px -4px rgba(66,126,164,.4);gap:4px;border:none;
+}
+.mao-section .ctrl .add-btn:hover{background:#518cb1;color:#fff}
+.mao-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+.mao-grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.mao-card{
+  background:#fff;border-radius:14px;padding:10px;
+  box-shadow:var(--shadow-card);transition:all var(--tr-soft);position:relative;
+  border:1px solid transparent;
+}
+.mao-card:hover{border-color:var(--c-blue);transform:translateY(-2px)}
+.mao-card.done{opacity:.55}
+.mao-card.done .nm,.mao-card.done .pr{text-decoration:line-through}
+.mao-card .pic{
+  width:100%;aspect-ratio:1;border-radius:10px;
+  background:#F4F9FB;border:1.5px dashed var(--c-line);
+  display:flex;align-items:center;justify-content:center;color:#7FA6BC;
+  margin-bottom:10px;overflow:hidden;position:relative;
+}
+.mao-card .pic img{width:100%;height:100%;object-fit:cover}
+.mao-card .pic .ck{
+  position:absolute;right:6px;top:6px;width:26px;height:26px;
+  border-radius:8px;background:rgba(255,255,255,.9);
+  display:flex;align-items:center;justify-content:center;color:var(--c-dark);cursor:pointer;transition:all var(--tr-soft);
+  border:1px solid var(--c-line);
+}
+.mao-card .pic .ck:hover{background:#fff;color:var(--c-blue);border-color:var(--c-blue)}
+.mao-card .pic .ck.on{background:var(--c-blue);color:#fff;border-color:var(--c-blue)}
+.mao-card .pic .pic-icon{
+  width:48px;height:48px;border-radius:50%;
+  background:rgba(175,219,230,.4);color:var(--c-blue);
+  display:flex;align-items:center;justify-content:center;
+}
+.mao-card .nm{font-size:13px;color:var(--c-dark);font-weight:500;line-height:1.4;padding:0 4px}
+.mao-card .meta{font-size:11px;color:var(--c-text-3);margin-top:4px;padding:0 4px;line-height:1.4}
+.mao-card .pr{font-size:14px;color:var(--c-pink);font-weight:600;margin-top:6px;padding:0 4px;font-feature-settings:"tnum"}
+.mao-card .qt{display:flex;align-items:center;gap:6px;margin-top:8px;justify-content:space-between;padding:0 4px 2px}
+.mao-card .qt .pill{background:#F4F9FB;padding:3px 10px;border-radius:20px;font-size:12px;color:var(--c-text-2);font-feature-settings:"tnum";border:1px dashed var(--c-line)}
+.mao-card .qt .ctrls{display:flex;gap:4px}
+.mao-card .qt .ctrls button{
+  width:26px;height:26px;border-radius:8px;background:#fff;color:var(--c-dark);border:1px solid var(--c-line);
+}
+.mao-card .qt .ctrls button:hover:not(:disabled){background:var(--c-cyan);border-color:var(--c-blue);color:var(--c-blue)}
+.mao-card .qt .ctrls button:disabled{opacity:.4;cursor:not-allowed}
+.setting-section{background:#fff;border-radius:18px;padding:20px;margin-bottom:14px;box-shadow:var(--shadow-card)}
+.setting-section h3{font-size:15px;font-weight:600;color:var(--c-dark);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px dashed var(--c-line);gap:14px}
+.setting-row:last-child{border-bottom:none}
+.setting-row .label{font-size:14px;color:var(--c-dark);flex:1}
+.setting-row .desc{font-size:11px;color:var(--c-text-3);margin-top:2px}
+.profile-bar{
+  display:flex;align-items:center;gap:14px;padding:16px;
+  background:#fff;border-radius:18px;margin-bottom:14px;box-shadow:var(--shadow-card);
+}
+.profile-bar .avatar{
+  width:64px;height:64px;border-radius:50%;overflow:hidden;
+  background:linear-gradient(135deg,var(--c-cyan),#C9E6EE);
+  border:3px solid #fff;box-shadow:0 6px 18px -6px rgba(28,67,102,.25);
+  position:relative;cursor:pointer;
+}
+.profile-bar .avatar img{width:100%;height:100%;object-fit:cover}
+.profile-bar .avatar-edit{
+  position:absolute;right:-3px;bottom:-3px;width:22px;height:22px;
+  border-radius:50%;background:var(--c-red);color:#fff;
+  border:2px solid #fff;display:flex;align-items:center;justify-content:center;
+}
+.profile-bar .info{flex:1}
+.profile-bar .nm{font-size:18px;font-weight:600;color:var(--c-dark)}
+.profile-bar .desc{font-size:12px;color:var(--c-text-3);margin-top:4px}
+.modal-mask{
+  position:fixed;inset:0;background:rgba(1,21,28,.4);z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-mask.show{opacity:1;pointer-events:auto}
+.modal{
+  background:#fff;border-radius:22px;width:100%;max-width:480px;
+  max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-modal);transform:scale(.92);transition:transform .2s;
+}
+.modal-mask.show .modal{transform:scale(1)}
+.modal::-webkit-scrollbar{width:6px}
+.modal::-webkit-scrollbar-thumb{background:var(--c-line);border-radius:3px}
+.modal-head{
+  display:flex;align-items:center;gap:8px;padding:18px 20px 14px;
+  border-bottom:1px dashed var(--c-line);position:sticky;top:0;background:#fff;z-index:2;
+}
+.modal-head h3{font-size:17px;font-weight:600;color:var(--c-dark);flex:1;display:flex;align-items:center;gap:8px}
+.modal-close{
+  width:32px;height:32px;border-radius:10px;background:rgba(175,219,230,.35);color:var(--c-dark);
+  display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:var(--c-cyan);color:var(--c-blue)}
+.modal-body{padding:18px 20px}
+.modal-foot{
+  padding:14px 20px;border-top:1px dashed var(--c-line);
+  display:flex;gap:10px;justify-content:flex-end;
+}
+.modal-foot .btn{min-width:80px}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:13px;color:var(--c-text-2);margin-bottom:6px}
+.form-row label .must{color:var(--c-blue)}
+.form-row label .optional{color:var(--c-text-3);font-size:11px;margin-left:4px}
+.form-row input,.form-row textarea,.form-row select{
+  width:100%;padding:10px 14px;border-radius:12px;
+  background:#F4F9FB;border:1.5px solid transparent;
+  font-size:15px;transition:all var(--tr-soft);font-family:inherit;
+}
+.form-row input:focus,.form-row textarea:focus,.form-row select:focus{
+  background:#fff;border-color:var(--c-blue);box-shadow:0 0 0 3px rgba(66,126,164,.1);
+}
+.form-row textarea{resize:vertical;min-height:70px}
+.form-row .upload-area{
+  border:1.5px dashed var(--c-line);border-radius:14px;
+  padding:24px 12px;text-align:center;cursor:pointer;
+  background:#FAFCFD;transition:all var(--tr-soft);position:relative;overflow:hidden;
+}
+.form-row .upload-area:hover{border-color:var(--c-blue);background:#F4F9FB}
+.form-row .upload-area.has{border-style:solid;border-color:var(--c-blue)}
+.form-row .upload-area .ic{color:var(--c-text-3);margin-bottom:6px}
+.form-row .upload-area input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.form-row .upload-area img{width:100%;max-height:160px;object-fit:contain;border-radius:10px;margin-bottom:6px}
+.form-row .upload-area .ph-txt{color:var(--c-text-3);font-size:12px}
+.form-row .row-split{display:flex;gap:10px}
+.form-row .row-split > div{flex:1}
+.color-picker{display:flex;gap:8px;flex-wrap:wrap}
+.color-dot{
+  width:36px;height:36px;border-radius:10px;cursor:pointer;
+  border:2px solid transparent;transition:all var(--tr-soft);position:relative;
+}
+.color-dot:hover{transform:scale(1.1)}
+.color-dot.on{border-color:var(--c-blue);transform:scale(1.1);box-shadow:0 0 0 3px rgba(66,126,164,.2)}
+.color-dot.on::after{
+  content:'✓';position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;
+}
+.editor-bar{
+  display:flex;gap:6px;padding:8px 0;flex-wrap:wrap;
+  border-bottom:1px dashed var(--c-line);margin-bottom:10px;
+}
+.editor-bar button{
+  width:34px;height:34px;border-radius:8px;
+  background:rgba(175,219,230,.3);color:var(--c-dark);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:600;
+}
+.editor-bar button:hover{background:var(--c-cyan);color:var(--c-blue)}
+.editor-bar button.on{background:var(--c-blue);color:#fff}
+.editor-bar button.text-btn{width:auto;padding:0 10px;font-size:12px}
+.editor-area{
+  min-height:180px;padding:14px;border-radius:14px;
+  background:#FAFCFD;border:1.5px solid transparent;outline:none;
+  font-size:14px;line-height:1.7;transition:all var(--tr-soft);
+}
+.editor-area:focus{background:#fff;border-color:var(--c-blue);box-shadow:0 0 0 3px rgba(66,126,164,.1)}
+.editor-area b{font-weight:700}
+.editor-area u{text-decoration:underline;text-decoration-color:var(--c-blue)}
+.editor-area i{font-style:italic}
+.editor-area .todo-line{display:flex;align-items:center;gap:6px;padding:2px 0}
+.editor-area .todo-line::before{content:'☐';color:var(--c-blue);font-size:16px;cursor:pointer}
+.editor-area .todo-line.done{color:var(--c-text-3);text-decoration:line-through}
+.editor-area .todo-line.done::before{content:'☑';color:var(--c-blue)}
+.icon-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.icon-pick-btn{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  background:#F4F9FB;border-radius:12px;font-size:13px;color:var(--c-dark);
+  border:1.5px solid transparent;cursor:pointer;transition:all var(--tr-soft);
+}
+.icon-pick-btn:hover{background:rgba(175,219,230,.4);border-color:var(--c-blue)}
+.icon-pick-btn.on{background:rgba(66,126,164,.08);border-color:var(--c-blue);color:var(--c-blue)}
+.icon-pick-btn .nm{flex:1;text-align:left}
+.toast{
+  position:fixed;top:60px;left:50%;transform:translate(-50%,-100px);
+  background:rgba(28,67,102,.95);color:#fff;padding:10px 18px;
+  border-radius:30px;font-size:13px;z-index:200;
+  box-shadow:0 8px 24px -8px rgba(0,0,0,.3);
+  opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;
+}
+.toast.show{transform:translate(-50%,0);opacity:1}
+@media (max-width:860px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0);box-shadow:8px 0 30px -10px rgba(0,0,0,.15)}
+  .main{margin-left:0}
+  .mobile-header{display:flex}
+  .page{padding:16px 16px 100px}
+  .home-hero h1{font-size:20px}
+  .home-hero .avatar{width:72px;height:72px}
+  .total-card .value{font-size:30px}
+  .filter-bar{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+  .filter-bar::-webkit-scrollbar{display:none}
+  .notes-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+}
+@media (max-width:380px){
+  .cat-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .home-stats{grid-template-columns:1fr 1fr;gap:8px}
+  .home-stats .stat-card{padding:12px}
+  .mao-grid,.mao-grid.cols-2{grid-template-columns:repeat(2,1fr)}
+}
+.scrim{position:fixed;inset:0;background:rgba(1,21,28,.3);z-index:49;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.show{opacity:1;pointer-events:auto}
+.privacy-modal .modal{max-width:380px;text-align:center;padding:24px}
+.privacy-modal .modal-body{padding:8px 4px 16px}
+.privacy-modal .ic{
+  width:64px;height:64px;border-radius:18px;background:rgba(66,126,164,.12);color:var(--c-blue);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+}
+.privacy-modal h3{font-size:18px;color:var(--c-dark);margin-bottom:8px}
+.privacy-modal p{font-size:13px;color:var(--c-text-2);line-height:1.7;margin-bottom:6px}
+.confirm-modal .modal{max-width:340px;text-align:center}
+.confirm-modal .modal-body{padding:8px 4px 8px}
+.confirm-modal h3{font-size:17px;color:var(--c-dark);margin-bottom:8px}
+.confirm-modal p{font-size:13px;color:var(--c-text-2);line-height:1.6;margin-bottom:14px}
+.confirm-modal .acts{display:flex;gap:10px;justify-content:center}
+button:focus-visible,a:focus-visible{outline:2px solid var(--c-blue);outline-offset:2px}
+.divider-text{
+  display:flex;align-items:center;gap:10px;margin:20px 0;color:var(--c-text-3);font-size:12px;
+}
+.divider-text::before,.divider-text::after{
+  content:'';flex:1;border-top:1px dashed var(--c-line);
+}
+.text-input{
+  width:100%;padding:12px 16px;border-radius:12px;background:#F4F9FB;
+  border:1.5px solid transparent;font-size:15px;transition:all var(--tr-soft);
+}
+.text-input:focus{background:#fff;border-color:var(--c-blue);box-shadow:0 0 0 3px rgba(66,126,164,.1)}
+</style>
+</head>
+<body>
+<aside class="sidebar" id="sidebar">
+  <div class="brand" id="brandBtn" title="点击回首页 / 更换头像">
+    <img id="brandImg" src="" alt="" style="display:none">
+    <span id="brandPlaceholder" style="color:var(--c-blue);font-size:24px">🐰</span>
+    <div class="edit-badge" style="background:var(--c-blue)"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+  </div>
+  <div id="syncBadgeSide" style="align-self:center;margin-top:10px"></div>
+  <nav class="nav-list" id="navList">
+    <div class="nav-item active" data-page="clothes">
+      <span class="ico-wrap"><svg class="ico" viewBox="0 0 24 24"><path d="M21.6 18.2L13 11.75v-.91c1.65-.49 2.8-2.17 2.43-4.05-.26-1.31-1.3-2.4-2.61-2.7C10.54 3.57 8.5 5.3 8.5 7.5h2c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5c0 .84-.69 1.52-1.53 1.5-.54 0-.97.43-.97.98V12L3.4 18.2c-.32.28-.4.76-.17 1.12.23.36.71.5 1.09.32L11 17l3.43 1.91 6.13 2.62c.39.17.86.05 1.09-.32.23-.36.15-.84-.05-1.01z"/></svg></span>
+      <span class="label">衣服</span>
+    </div>
+    <div class="nav-item" data-page="body">
+      <span class="ico-wrap"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="6" r="3.5"/><path d="M12 11c-3 0-6 1.5-6 4.5V18h12v-2.5c0-3-3-4.5-6-4.5z"/></svg></span>
+      <span class="label">尺寸</span>
+    </div>
+    <div class="nav-item" data-page="calendar">
+      <span class="ico-wrap"><svg class="ico" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg></span>
+      <span class="label">日历</span>
+    </div>
+    <div class="nav-item" data-page="notes">
+      <span class="ico-wrap"><svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg></span>
+      <span class="label">记事</span>
+    </div>
+    <div class="nav-item" data-page="mao">
+      <span class="ico-wrap"><svg class="ico" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>
+      <span class="label">毛娘</span>
+    </div>
+    <div class="nav-item" data-page="settings">
+      <span class="ico-wrap"><svg class="ico" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98 0-.34-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98 0 .33.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46a.5.5 0 0 0 .61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65A.5.5 0 0 0 10 22h4a.5.5 0 0 0 .49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1a.5.5 0 0 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></span>
+      <span class="label">设置</span>
+    </div>
+  </nav>
+</aside>
+
+<div class="scrim" id="scrim"></div>
+
+<main class="main">
+  <div class="mobile-header">
+    <button class="menu-btn" id="menuBtn" aria-label="菜单">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </button>
+    <div class="title">
+      <svg id="mobileTitleIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"></svg>
+      <span id="mobileTitle">娃柜</span>
+    </div>
+    <div class="right"><span id="syncBadgeTop"></span></div>
+  </div>
+  <div class="page" id="pageHome"></div>
+</main>
+
+<div class="modal-mask" id="modal"><div class="modal" id="modalContent"></div></div>
+
+<div class="modal-mask privacy-modal" id="privacyModal">
+  <div class="modal">
+    <div class="modal-body">
+      <div class="ic">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+      </div>
+      <h3>隐私提醒</h3>
+      <p>默认所有数据存储在<strong>本机浏览器</strong>中，每次修改自动保存，关闭后重开不会丢失。</p>
+      <p>如需多设备同步，可在「设置 → 云端同步」连接<strong>您自己的 Supabase</strong> 数据库，数据只保存在您的账号里。建议定期「导出全部数据备份」留底。</p>
+    </div>
+    <div class="modal-foot" style="justify-content:center;border-top:none;padding-top:0">
+      <button class="btn btn-primary" id="privacyOk">我知道了</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask confirm-modal" id="confirmModal">
+  <div class="modal">
+    <div class="modal-body">
+      <h3 id="confirmTitle">确认操作</h3>
+      <p id="confirmMsg">确认执行此操作吗？</p>
+      <div class="acts">
+        <button class="btn btn-ghost" id="confirmNo">取消</button>
+        <button class="btn btn-primary" id="confirmYes">确认</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= Data Layer ================= */
+const STORE_KEY = 'wb_sujiu_cabinet_v1';
+const ICONS = {
+  home:'<circle cx="12" cy="8" r="4"/><path d="M12 14c-4 0-8 2-8 6v2h16v-2c0-4-4-6-8-6z"/>',
+  home2:'<circle cx="12" cy="8" r="4"/><path d="M12 14c-4 0-8 2-8 6v2h16v-2c0-4-4-6-8-6z"/>',
+  clothes:'<path d="M21.6 18.2L13 11.75v-.91c1.65-.49 2.8-2.17 2.43-4.05-.26-1.31-1.3-2.4-2.61-2.7C10.54 3.57 8.5 5.3 8.5 7.5h2c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5c0 .84-.69 1.52-1.53 1.5-.54 0-.97.43-.97.98V12L3.4 18.2c-.32.28-.4.76-.17 1.12.23.36.71.5 1.09.32L11 17l3.43 1.91 6.13 2.62c.39.17.86.05 1.09-.32.23-.36.15-.84-.05-1.01z"/>',
+  dress:'<path d="M12 2l-3 5 3 4 3-4z" /><path d="M9 7l-3 8c0 4 6 7 6 7s6-3 6-7l-3-8" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  top:'<path d="M16 3l4 4-4 4-2-2-2 2-4-4 4-4 2 2z"/><path d="M10 7v8a2 2 0 0 0 2 2 2 2 0 0 0 2-2V7" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  coat:'<path d="M12 2L8 6v12l4 2 4-2V6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 6v14" stroke="currentColor" stroke-width="2"/>',
+  pants:'<path d="M9 4h6v6l-1 10h-2l-1-6-1 6H8l-1-10z"/>',
+  shoes:'<path d="M4 14c0-3 4-4 6-4 4 0 8 2 10 4l0 4H4z"/>',
+  eyes:'<circle cx="8" cy="12" r="3"/><circle cx="16" cy="12" r="3"/>',
+  wig:'<path d="M6 11c0-4 3-7 6-7s6 3 6 7v6H6z"/><path d="M9 8c1 0 2-1 3-1s2 1 3 1" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  acc:'<path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/>',
+  gufeng:'<path d="M12 3v18M6 7c4 0 6 2 6 4s-2 4-6 4M18 7c-4 0-6 2-6 4s2 4 6 4" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  body:'<circle cx="12" cy="6" r="3.5"/><path d="M12 11c-3 0-6 1.5-6 4.5V18h12v-2.5c0-3-3-4.5-6-4.5z"/>',
+  calendar:'<path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/>',
+  notes:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>',
+  mao:'<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>',
+  settings:'<path d="M19.43 12.98c.04-.32.07-.64.07-.98 0-.34-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98 0 .33.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46a.5.5 0 0 0 .61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65A.5.5 0 0 0 10 22h4a.5.5 0 0 0 .49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1a.5.5 0 0 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/>',
+  wallet:'<path d="M21 7H5a1 1 0 0 0 0 2h16v10H3V5a2 2 0 0 1 2-2h14v4zm-4 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>',
+  edit:'<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>',
+  plus:'<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/>',
+  x:'<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>',
+  search:'<path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/>',
+  trash:'<path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>',
+  arrowRight:'<path d="M10 17l5-5-5-5v10z"/>',
+  arrowLeft:'<path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>',
+  check:'<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>',
+  upload:'<path d="M19 7v2.99s-1.99.01-2 0V7H5v10h14V7h-1zm-7-3.99L7.5 7.5l1.41 1.41L11 6.83V14h2V6.83l2.09 2.08L16.5 7.5 12 3z"/>',
+  heart:'<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>',
+  list:'<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>',
+  grid:'<path d="M3 3v8h8V3H3zm0 10v8h8v-8H3zm10 0v8h8v-8h-8zm0-10v8h8V3h-8z"/>',
+  expand:'<path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>',
+  collapse:'<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>',
+  bell:'<path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 1 0-3 0v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>',
+  back:'<path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>'
+};
+
+const NOTE_COLORS = ['#BFD9EA','#A6C7DC','#8DB4CE','#74A0C0','#5B8CB2','#4279A5','#2C5D87'];
+
+const defaultData = {
+  profile: { title: 'SuJiu的娃柜', avatar: '' },
+  categories: [
+    {id:'cat_dress', name:'裙子', visible:true, icon:'dress', bg:1},
+    {id:'cat_top', name:'上衣', visible:true, icon:'top', bg:2},
+    {id:'cat_coat', name:'外套', visible:true, icon:'coat', bg:3},
+    {id:'cat_pants', name:'裤子', visible:true, icon:'pants', bg:4},
+    {id:'cat_shoes', name:'鞋子', visible:true, icon:'shoes', bg:5},
+    {id:'cat_eyes', name:'眼珠', visible:true, icon:'eyes', bg:6},
+    {id:'cat_wig', name:'假发', visible:true, icon:'wig', bg:7},
+    {id:'cat_acc', name:'配件', visible:true, icon:'acc', bg:8},
+    {id:'cat_gufeng', name:'古风全套', visible:true, icon:'gufeng', bg:9}
+  ],
+  clothes: [
+    {id:'c1', name:'PREAL 1/4 蕾丝睡裙', category:'cat_dress', size:'1/4', status:'shipped', deposit:200, balance:600, total:800, paid:true, image:'', note:'', createdAt:Date.now()-86400000*8},
+    {id:'c2', name:'JK 水手服·米色', category:'cat_top', size:'1/3', status:'shipped', deposit:150, balance:350, total:500, paid:false, image:'', note:'需要补尾款', createdAt:Date.now()-86400000*5},
+    {id:'c3', name:'古风碧落襦裙全套', category:'cat_gufeng', size:'1/4', status:'not_shipped', deposit:300, balance:800, total:1100, paid:false, image:'', note:'预付定金待补', createdAt:Date.now()-86400000*3},
+    {id:'c4', name:'南瓜头 SD 分裂鞋', category:'cat_shoes', size:'1/4', status:'shipped', deposit:80, balance:160, total:240, paid:true, image:'', note:'', createdAt:Date.now()-86400000*10},
+    {id:'c5', name:'蓝灰渐变短假发', category:'cat_wig', size:'通用', status:'not_shipped', deposit:50, balance:200, total:250, paid:false, image:'', note:'', createdAt:Date.now()-86400000*1}
+  ],
+  bodies: [
+    {id:'b1', name:'SD 分裂体·小克', size:'1/4', height:'44cm', head:'18cm', neck:'8cm', shoulder:'11cm', chest:'22cm', waist:'18cm', hip:'23cm', leg:'21cm', image:'', isMine:true, note:'我的主用'},
+    {id:'b2', name:'SD 少女体·柚子', size:'1/3', height:'58cm', head:'21cm', neck:'9cm', shoulder:'13cm', chest:'26cm', waist:'20cm', hip:'27cm', leg:'27cm', image:'', isMine:true, note:''},
+    {id:'b3', name:'MSD 体·小柚', size:'1/6', height:'27cm', head:'11.5cm', neck:'5cm', shoulder:'7cm', chest:'14cm', waist:'12cm', hip:'14.5cm', leg:'13cm', image:'', isMine:false, note:'可出'}
+  ],
+  wishes: [
+    {id:'w1', name:'SD 1/4 蕾丝裙', price:1200, date:'2026-08-25', openTime:'14:00', note:'成意家新品'}
+  ],
+  notes: [],
+  maoTools: [
+    {id:'t1', name:'热熔胶枪', price:25, image:'', note:'20W 迷你款', sold:false},
+    {id:'t2', name:'尖嘴镊子', price:15, image:'', note:'不锈钢防锈', sold:false}
+  ],
+  maoStock: [
+    {id:'s1', name:'马海毛 棉花糖', shop:'微店·团子家', price:0, qty:0, total:0, image:'', note:'500g装'},
+    {id:'s2', name:'袜子里布', shop:'淘宝·娃衣铺', price:36, qty:3, total:108, image:'', note:'6分袜子专用'}
+  ],
+  maoIncome: [
+    {id:'i1', name:'西瓜头造型单', price:80, image:'', note:'6分娃'},
+    {id:'i2', name:'凯特大毛修剪', price:150, image:'', note:'4分娃'}
+  ],
+  maoClients: [
+    {id:'cl1', name:'小圆同学', platform:'小红书', price:120, require:'4分娃·浅金色长卷', image:'', done:false},
+    {id:'cl2', name:'阿茶', platform:'微博', price:80, require:'6分西瓜头造型', image:'', done:true}
+  ]
+};
+
+/* ==== 存储安全层：沙箱 iframe / 隐私模式等场景下 localStorage 可能不可用 ==== */
+function lsGet(k){ try{ return localStorage.getItem(k===undefined?STORE_KEY:k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } }
+function storageOK(){
+  try{ localStorage.setItem('__wb_probe__','1'); localStorage.removeItem('__wb_probe__'); return true; }
+  catch(e){ return false; }
+}
+
+/* ==== IndexedDB 本地备份层：与 localStorage 双写，即使系统清理其中一层也能恢复 ==== */
+const IDB_DATA = 'data', IDB_AT = 'saved_at', IDB_CFG = 'sync_cfg';
+let __idb = null;
+function idbOpen(){
+  if(__idb) return Promise.resolve(__idb);
+  return new Promise((resolve, reject)=>{
+    try{
+      const rq = indexedDB.open('wb_sujiu_cabinet', 1);
+      rq.onupgradeneeded = e => { try{ e.target.result.createObjectStore('kv'); }catch(_){} };
+      rq.onsuccess = e => { __idb = e.target.result; resolve(__idb); };
+      rq.onerror = () => reject(rq.error || new Error('IndexedDB 不可用'));
+      rq.onblocked = () => reject(new Error('IndexedDB 被占用'));
+    }catch(e){ reject(e); }
+  });
+}
+async function idbSet(k, v){
+  try{
+    const db = await idbOpen();
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction('kv','readwrite');
+      tx.objectStore('kv').put(v, k);
+      tx.oncomplete = resolve;
+      tx.onerror = ()=>reject(tx.error);
+      tx.onabort = ()=>reject(tx.error);
+    });
+    return true;
+  }catch(e){ return false; }
+}
+async function idbGet(k){
+  try{
+    const db = await idbOpen();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction('kv','readonly');
+      const rq = tx.objectStore('kv').get(k);
+      rq.onsuccess = ()=>resolve(rq.result);
+      rq.onerror = ()=>reject(rq.error);
+    });
+  }catch(e){ return null; }
+}
+/* 每次保存时同步写一份到 IndexedDB（异步、不阻塞） */
+async function backupToLocal(){
+  await idbSet(IDB_DATA, JSON.stringify(state));
+  await idbSet(IDB_AT, Date.now());
+}
+/* 设置页「本地保存」状态行 */
+function updateLocalSaveLine(){
+  const el = document.getElementById('localSaveLine');
+  if(!el) return;
+  const t = Number(lsGet('wb_saved_at')||0);
+  el.innerHTML = t
+    ? '<span style="color:#3A6E58">✓ 已自动保存 · ' + new Date(t).toLocaleString() + '</span>'
+    : '<span style="color:var(--c-text-3)">尚未保存</span>';
+}
+
+/* ==== 云端同步模块（Supabase REST，多设备数据同步） ==== */
+const SYNC_CFG_KEY = 'wb_sync_cfg_v1';
+const syncState = { connected:false, busy:false, lastSyncAt:null, lastError:'' };
+function getSyncCfg(){
+  try{ const r = localStorage.getItem(SYNC_CFG_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; }
+}
+function setSyncCfg(cfg){
+  try{
+    if(cfg) localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(cfg));
+    else localStorage.removeItem(SYNC_CFG_KEY);
+  }catch(e){}
+  idbSet(IDB_CFG, cfg ? JSON.stringify(cfg) : ''); /* 云端配置同样写一份到 IndexedDB */
+}
+function sbHeaders(cfg, extra){
+  const h = { 'apikey':cfg.key, 'Authorization':'Bearer '+cfg.key, 'Content-Type':'application/json' };
+  if(extra) Object.assign(h, extra);
+  return h;
+}
+function sbUrl(cfg, path, query){
+  return cfg.url.replace(/\/+$/,'') + path + (query||'');
+}
+async function sbPush(){
+  const cfg = getSyncCfg(); if(!cfg) return false;
+  const res = await fetch(sbUrl(cfg,'/rest/v1/cabinet_data'), {
+    method:'POST',
+    headers: sbHeaders(cfg, {'Prefer':'resolution=merge-duplicates'}),
+    body: JSON.stringify({ room:cfg.room, data: state, updated_at:new Date().toISOString() })
+  });
+  if(!res.ok){ const t = await res.text(); throw new Error('HTTP '+res.status+' '+t.slice(0,100)); }
+  syncState.lastSyncAt = Date.now(); syncState.lastError = '';
+  updateSyncBadge();
+  return true;
+}
+async function sbPullWith(cfg){
+  const res = await fetch(sbUrl(cfg,'/rest/v1/cabinet_data','?select=room,data,updated_at&room=eq.'+encodeURIComponent(cfg.room)), {
+    headers: sbHeaders(cfg)
+  });
+  if(!res.ok){ const t = await res.text(); throw new Error('HTTP '+res.status+' '+t.slice(0,100)); }
+  const rows = await res.json();
+  return rows && rows.length ? rows[0] : null;
+}
+let syncTimer = null;
+function scheduleSyncPush(){
+  if(!getSyncCfg() || !syncState.connected) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async ()=>{
+    syncState.busy = true; updateSyncBadge();
+    try{ await sbPush(); toast('已自动同步到云端'); }
+    catch(e){ syncState.lastError = String(e.message||e); updateSyncBadge(); }
+    syncState.busy = false; updateSyncBadge();
+  }, 2500);
+}
+function localSavedAt(){ return Number(lsGet('wb_saved_at')||0); }
+async function syncConnect(cfg, opts){
+  opts = opts||{};
+  if(!cfg || !/^https?:\/\//.test(cfg.url||'')) { toast('请填写正确的项目地址','err'); return false; }
+  if(!cfg.key){ toast('请填写 anon 公钥','err'); return false; }
+  if(!cfg.room){ toast('请填写同步码','err'); return false; }
+  syncState.busy = true; updateSyncBadge();
+  try{
+    const row = await sbPullWith(cfg);
+    const localAt = localSavedAt();
+    const remoteAt = row ? new Date(row.updated_at).getTime() : 0;
+    const localHas = !!lsGet();
+    setSyncCfg(cfg);
+    if(row && remoteAt > localAt){
+      /* 云端较新：本机采用云端数据 */
+      lsSet(STORE_KEY, JSON.stringify(row.data));
+      lsSet('wb_saved_at', String(remoteAt));
+      syncState.connected = true; syncState.busy = false;
+      if(!opts.silent) toast('已连接：云端版本较新，已同步到本机');
+      location.reload();
+      return true;
+    }
+    if(!row && localHas){ await sbPush(); }
+    syncState.connected = true; syncState.lastError = '';
+    syncState.busy = false; updateSyncBadge();
+    if(!opts.silent) toast('云端同步已连接');
+    renderPage();
+    return true;
+  }catch(e){
+    syncState.busy = false;
+    syncState.lastError = String(e.message||e);
+    syncState.connected = false;
+    updateSyncBadge();
+    toast('连接失败：'+syncState.lastError+'（请检查地址/公钥/数据表）','err');
+    return false;
+  }
+}
+async function syncDisconnect(){
+  setSyncCfg(null);
+  syncState.connected = false; syncState.busy = false; syncState.lastError = '';
+  clearTimeout(syncTimer);
+  updateSyncBadge(); renderPage();
+  toast('已断开云端同步（数据仍保存在本机）');
+}
+/* 启动时若已配置则静默自动连接：云端较新则自动拉取 */
+async function syncAutoResume(){
+  const cfg = getSyncCfg();
+  if(!cfg) { updateSyncBadge(); return; }
+  try{
+    const row = await sbPullWith(cfg);
+    const localAt = localSavedAt();
+    const remoteAt = row ? new Date(row.updated_at).getTime() : 0;
+    if(row && remoteAt > localAt){
+      lsSet(STORE_KEY, JSON.stringify(row.data));
+      lsSet('wb_saved_at', String(remoteAt));
+      updateSyncBadge();
+      location.reload();
+      return;
+    }
+    syncState.connected = true;
+  }catch(e){ syncState.lastError = String(e.message||e); }
+  updateSyncBadge();
+}
+function syncBadgeHTML(){
+  if(syncState.busy) return '<span class="sync-badge busy"><span class="dot"></span>☁ 同步中…</span>';
+  if(syncState.connected && syncState.lastError) return '<span class="sync-badge err" title="'+esc(syncState.lastError)+'"><span class="dot"></span>☁ 同步异常</span>';
+  if(syncState.connected){
+    const t = syncState.lastSyncAt ? new Date(syncState.lastSyncAt).toTimeString().slice(0,5) : '';
+    return '<span class="sync-badge on"><span class="dot"></span>☁ 已连接'+(t?' '+t:'')+'</span>';
+  }
+  return '<span class="sync-badge off"><span class="dot"></span>☁ 未连接云端</span>';
+}
+function updateSyncBadge(){
+  const a = document.getElementById('syncBadgeSide');
+  const b = document.getElementById('syncBadgeTop');
+  const html = syncBadgeHTML();
+  if(a){ a.innerHTML = html; a.title = '云同步：点击连接 / 立即同步'; a.style.cursor = 'pointer'; a.onclick = openSyncModal; }
+  if(b){ b.innerHTML = html; b.title = '云同步：点击连接 / 立即同步'; b.style.cursor = 'pointer'; b.onclick = openSyncModal; }
+  const box = document.getElementById('syncStatusLine');
+  if(box) box.innerHTML = syncState.connected
+    ? (syncState.lastError
+        ? '<span style="color:#C2455A">同步异常：'+esc(syncState.lastError).slice(0,80)+'</span>'
+        : '<span style="color:#3A6E58">已连接 · 数据自动双向同步'+(syncState.lastSyncAt?(' · 上次 '+new Date(syncState.lastSyncAt).toLocaleString()):'')+'</span>')
+    : '<span style="color:var(--c-text-3)">未连接 · 数据仅保存在本机</span>';
+}
+
+/* ==== 云同步快捷面板：点击侧边栏/顶栏 ☁ 胶囊打开 ==== */
+function syncModalStatusHTML(){
+  if(syncState.busy) return '<span style="color:#427EA4">☁ 同步中，请稍候…</span>';
+  if(syncState.connected && syncState.lastError) return '<span style="color:#C2455A">☁ 已连接但上次同步异常：'+esc(syncState.lastError).slice(0,60)+'</span>';
+  if(syncState.connected){
+    const t = syncState.lastSyncAt ? new Date(syncState.lastSyncAt).toLocaleString() : '尚未同步';
+    return '<span style="color:#3A6E58">☁ 已连接云端 · 上次同步：'+t+'</span>';
+  }
+  return '<span style="color:var(--c-text-3)">☁ 未连接 · 数据仅保存在本机（自动保存不受影响）</span>';
+}
+function gotoSyncSettings(){
+  closeModal(); switchPage('settings');
+  setTimeout(()=>{ const el = document.getElementById('cloudSyncSection'); if(el) el.scrollIntoView({behavior:'smooth'}); }, 80);
+}
+function openSyncModal(){
+  const cfg = getSyncCfg() || {};
+  const on = syncState.connected;
+  openModal(`
+    <h3 style="margin:0 0 6px;font-size:18px">☁️ 云同步</h3>
+    <div style="font-size:13px;margin-bottom:14px" id="syncModalStatus">${syncModalStatusHTML()}</div>
+    ${on ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="smPush" style="padding:10px 16px;min-height:44px;font-size:14px">立即同步到云端</button>
+        <button class="btn btn-outline" id="smPull" style="padding:10px 16px;min-height:44px;font-size:14px">从云端拉取</button>
+        <button class="btn btn-ghost" id="smOff" style="padding:10px 16px;min-height:44px;font-size:14px">断开</button>
+      </div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">已连接时，每次修改都会自动保存并同步到云端（约 2.5 秒内推送），换设备打开后自动拉取最新数据。</div>
+    ` : `
+      <div class="sync-form-row"><label>项目地址（Project URL）</label><input id="smUrl" placeholder="https://xxxxx.supabase.co" value="${esc(cfg.url||'')}" autocomplete="off" spellcheck="false"></div>
+      <div class="sync-form-row"><label>anon 公钥（API Key）</label><input id="smKey" placeholder="eyJhbGciOi..." value="${esc(cfg.key||'')}" autocomplete="off" spellcheck="false"></div>
+      <div class="sync-form-row"><label>同步码（多台设备填同一个即可互相同步）</label><input id="smRoom" placeholder="如：sujiu-cabinet-001" value="${esc(cfg.room||'')}" autocomplete="off" spellcheck="false"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-primary" id="smConnect" style="padding:10px 16px;min-height:44px;font-size:14px">连接云端</button>
+        <button class="btn btn-outline" id="smHelp" style="padding:10px 16px;min-height:44px;font-size:14px">查看接入教程</button>
+      </div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">连接自己的 Supabase（免费）后，多台手机/电脑数据自动保持一致；不连接也完全不影响本地自动保存。</div>
+    `}
+    <button class="btn btn-ghost" id="smSettings" style="margin-top:14px;width:100%;padding:10px;min-height:44px;font-size:13px">打开详细同步设置</button>
+  `);
+  const q = id => document.getElementById(id);
+  q('smSettings').onclick = gotoSyncSettings;
+  if(on){
+    q('smPush').onclick = async ()=>{
+      syncState.busy = true; updateSyncBadge();
+      const st = q('syncModalStatus'); if(st) st.innerHTML = syncModalStatusHTML();
+      try{ await sbPush(); toast('已同步到云端'); }
+      catch(e){ syncState.lastError = String(e.message||e); toast('同步失败：'+syncState.lastError,'err'); }
+      syncState.busy = false; updateSyncBadge();
+      const st2 = q('syncModalStatus'); if(st2) st2.innerHTML = syncModalStatusHTML();
+    };
+    q('smPull').onclick = ()=> confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未同步的改动会丢失），确认继续？', async ()=>{
+      const c = getSyncCfg(); if(!c) return;
+      try{
+        const row = await sbPullWith(c);
+        if(row){
+          lsSet(STORE_KEY, JSON.stringify(row.data));
+          lsSet('wb_saved_at', String(new Date(row.updated_at).getTime()));
+          toast('已从云端拉取，正在刷新');
+          location.reload();
+        } else toast('云端暂无数据','err');
+      }catch(e){ toast('拉取失败：'+(e.message||e),'err'); }
+    });
+    q('smOff').onclick = async ()=>{ await syncDisconnect(); openSyncModal(); };
+  } else {
+    q('smConnect').onclick = async ()=>{
+      const ok = await syncConnect({ url:q('smUrl').value.trim(), key:q('smKey').value.trim(), room:q('smRoom').value.trim() });
+      if(ok && !document.hidden) openSyncModal();
+    };
+    q('smHelp').onclick = gotoSyncSettings;
+  }
+}
+
+function loadData(){
+  try{
+    const raw = lsGet();
+    if(!raw) return JSON.parse(JSON.stringify(defaultData));
+    const data = JSON.parse(raw);
+    for(const k in defaultData){
+      if(typeof data[k] === 'undefined') data[k] = JSON.parse(JSON.stringify(defaultData[k]));
+    }
+    // 兼容迁移：库存没有 total 字段时，按 price×qty 补初始化
+    if(Array.isArray(data.maoStock)){
+      data.maoStock.forEach(s => {
+        if(typeof s.total === 'undefined' || s.total === null){
+          s.total = Number(s.price||0) * Number(s.qty||0);
+        }
+      });
+    }
+    // 兼容迁移：默认9分类底色按深浅蓝新顺序重排
+    if(Array.isArray(data.categories)){
+      const order = ['cat_dress','cat_top','cat_coat','cat_pants','cat_shoes','cat_eyes','cat_wig','cat_acc','cat_gufeng'];
+      data.categories.forEach(c=>{ const i = order.indexOf(c.id); if(i>=0) c.bg = i+1; });
+    }
+    return data;
+  }catch(e){ return JSON.parse(JSON.stringify(defaultData)); }
+}
+function saveData(){
+  /* 自动保存：本机立即双层落盘（localStorage + IndexedDB）+ 记录保存时间 + 防抖推送到云端 */
+  const ok = lsSet(STORE_KEY, JSON.stringify(state));
+  if(ok) lsSet('wb_saved_at', String(Date.now()));
+  backupToLocal();
+  scheduleSyncPush();
+  updateLocalSaveLine();
+}
+let state = loadData();
+
+/* ================= Helpers ================= */
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+function uid(){return 'id_'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3)}
+function esc(s){
+  if(s==null) return '';
+  return String(s).replace(/[&<>"']/g, c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function fmt(n){n=Number(n)||0;return '¥'+n.toFixed(n%1===0?0:2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function fmtShort(n){
+  n=Number(n)||0;
+  if(n>=10000) return '¥'+(n/10000).toFixed(1)+'w';
+  if(n>=1000) return '¥'+n.toFixed(0);
+  return '¥'+n.toFixed(0);
+}
+function fileToBase64(file, maxW=800){
+  return new Promise((resolve)=>{
+    if(!file) return resolve('');
+    const r = new FileReader();
+    r.onload = e => {
+      const img = new Image();
+      img.onload = ()=>{
+        const ratio = Math.min(maxW/img.width, 1);
+        const w = Math.round(img.width*ratio);
+        const h = Math.round(img.height*ratio);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h); /* PNG 透明底转 JPEG 不变黑 */
+        ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL('image/jpeg', .82));
+      };
+      img.onerror = ()=>resolve('');
+      img.src = e.target.result;
+    };
+    r.onerror = ()=>resolve('');
+    r.readAsDataURL(file);
+  });
+}
+function svgIcon(name, size=20, color=''){
+  const path = ICONS[name] || ICONS.home;
+  const c = color ? ` style="color:${color}"` : '';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor"${c}>${path}</svg>`;
+}
+
+/* ================= Toast ================= */
+const toastEl = document.getElementById('toast');
+let toastTimer;
+function toast(msg, type){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  toastEl.style.background = type==='err' ? 'rgba(232,90,111,.95)' : 'rgba(28,67,102,.95)';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove('show'), 1800);
+}
+
+/* ================= Confirm Modal ================= */
+const confirmModal = document.getElementById('confirmModal');
+function confirmAction(title, msg, onYes){
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').innerHTML = msg;
+  confirmModal.classList.add('show');
+  const yes = document.getElementById('confirmYes');
+  const no = document.getElementById('confirmNo');
+  const cleanup = ()=>{
+    yes.onclick = null;
+    no.onclick = null;
+    confirmModal.classList.remove('show');
+  };
+  yes.onclick = ()=>{ cleanup(); onYes && onYes(); };
+  no.onclick = cleanup;
+}
+
+/* ================= Modal (dynamic) ================= */
+const modalEl = document.getElementById('modal');
+const modalContent = document.getElementById('modalContent');
+function openModal(html){
+  modalContent.innerHTML = html;
+  modalEl.classList.add('show');
+}
+function closeModal(){
+  modalEl.classList.remove('show');
+  modalContent.innerHTML = '';
+}
+modalEl.addEventListener('click', e=>{
+  if(e.target === modalEl) closeModal();
+});
+
+/* ================= Computed ================= */
+function stats(){
+  const totalUnpaid = state.clothes.filter(c=>!c.paid).length;
+  const totalSpent = state.clothes.reduce((s,c)=>s + Number(c.paid? c.total : (c.deposit||0)), 0);
+  return { clothes: state.clothes.length, bodies: state.bodies.filter(b=>b.isMine).length, unpaid: totalUnpaid, total: totalSpent };
+}
+
+/* ================= Navigation ================= */
+const sidebar = document.getElementById('sidebar');
+const scrim = document.getElementById('scrim');
+const navItems = $$('.nav-item', sidebar);
+const pageEl = document.getElementById('pageHome');
+let currentPage = 'home';
+
+document.getElementById('menuBtn').addEventListener('click', ()=>{
+  sidebar.classList.toggle('open');
+  scrim.classList.toggle('show');
+});
+scrim.addEventListener('click', ()=>{
+  sidebar.classList.remove('open');
+  scrim.classList.remove('show');
+});
+document.getElementById('brandBtn').addEventListener('click', ()=>{
+  switchPage('home');
+});
+document.getElementById('homeBtnMobile')?.addEventListener('click', ()=> switchPage('home'));
+
+navItems.forEach(el => {
+  el.addEventListener('click', ()=> switchPage(el.dataset.page));
+});
+
+function switchPage(name){
+  currentPage = name;
+  navItems.forEach(el => el.classList.toggle('active', el.dataset.page === name));
+  renderPage();
+  sidebar.classList.remove('open');
+  scrim.classList.remove('show');
+  const labels = {home:state.profile.title, clothes:'衣服', body:'尺寸', calendar:'日历', notes:'记事本', mao:'毛娘', settings:'设置'};
+  document.getElementById('mobileTitle').textContent = labels[name];
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ================= Privacy Modal ================= */
+const privacyModal = document.getElementById('privacyModal');
+if(!lsGet('wb_priv_v1')){
+  setTimeout(()=>privacyModal.classList.add('show'), 600);
+}
+document.getElementById('privacyOk').addEventListener('click', ()=>{
+  privacyModal.classList.remove('show');
+  lsSet('wb_priv_v1','1');
+});
+
+/* ================= 云端同步：启动自动恢复 + 退后台前强推 ================= */
+updateSyncBadge();
+syncAutoResume();
+/* ================= 本地历史数据恢复：localStorage 被清理时从 IndexedDB 备份还原 ================= */
+async function localRestore(){
+  const raw = lsGet();
+  const idbRaw = await idbGet(IDB_DATA);
+  if(!raw && idbRaw){
+    /* localStorage 已被系统清理 → 从 IndexedDB 备份恢复历史数据 */
+    try{
+      JSON.parse(idbRaw); /* 校验可解析 */
+      lsSet(STORE_KEY, idbRaw);
+      const at = await idbGet(IDB_AT);
+      if(at) lsSet('wb_saved_at', String(at));
+      state = loadData();
+      renderPage();
+      saveData();
+      toast('已自动恢复本机历史数据');
+    }catch(e){}
+    return;
+  }
+  if(raw && !idbRaw){
+    /* 首次升级：为已有数据补建 IndexedDB 备份 */
+    backupToLocal();
+  }
+  /* 云端同步配置若也被清理，同样从备份恢复 */
+  if(!getSyncCfg()){
+    const cfgRaw = await idbGet(IDB_CFG);
+    if(cfgRaw){
+      try{ setSyncCfg(JSON.parse(cfgRaw)); }catch(e){}
+    }
+  }
+}
+localRestore();
+/* 退后台 / 关闭页面前：本地双层落盘（+ 已连接云端时强推） */
+function flushLocal(){
+  try{ lsSet(STORE_KEY, JSON.stringify(state)); }catch(e){}
+  backupToLocal();
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden'){
+    flushLocal();
+    if(getSyncCfg() && syncState.connected){
+      clearTimeout(syncTimer);
+      sbPush().catch(e=>{ syncState.lastError = String(e.message||e); updateSyncBadge(); });
+    }
+  }
+});
+window.addEventListener('pagehide', ()=>{
+  flushLocal();
+  if(getSyncCfg() && syncState.connected){
+    clearTimeout(syncTimer);
+    try{ sbPush(); }catch(e){}
+  }
+});
+/* 多标签页 / 多设备期间定期检查云端是否有更新（每 2 分钟拉一次时间戳） */
+setInterval(async ()=>{
+  const cfg = getSyncCfg();
+  if(!cfg || !syncState.connected) return;
+  try{
+    const row = await sbPullWith(cfg);
+    if(row){
+      const remoteAt = new Date(row.updated_at).getTime();
+      if(remoteAt > localSavedAt() + 3000){
+        lsSet(STORE_KEY, JSON.stringify(row.data));
+        lsSet('wb_saved_at', String(remoteAt));
+        toast('检测到其他设备的最新数据，已同步');
+        location.reload();
+      }
+    }
+  }catch(e){}
+}, 120000);
+
+/* ================= Brand / Avatar ================= */
+function updateBrand(){
+  const img = document.getElementById('brandImg');
+  const ph = document.getElementById('brandPlaceholder');
+  if(state.profile.avatar){
+    img.src = state.profile.avatar; img.style.display='block';
+    ph.style.display='none';
+  } else {
+    img.style.display='none'; ph.style.display='block';
+  }
+}
+document.getElementById('brandBtn').addEventListener('click', ()=>{
+  openAvatarModal(()=>{
+    updateBrand();
+    renderPage();
+  });
+});
+
+function openAvatarModal(onSet){
+  openModal(`
+    <div class="modal-head"><h3>更换头像</h3><button class="modal-close" data-x>${svgIcon('x',18)}</button></div>
+    <div class="modal-body" style="text-align:center">
+      <div class="form-row">
+        <div class="upload-area" id="upWrap">
+          <img id="prevImg" style="display:none">
+          <div class="ic" id="upIcon">${svgIcon('upload',36)}</div>
+          <div class="ph-txt">点击选择图片</div>
+          <input type="file" accept="image/*" id="upFile">
+        </div>
+      </div>
+      <button class="btn btn-ghost" id="resetAv" style="margin:0 auto">恢复默认</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-x>取消</button>
+      <button class="btn btn-primary" id="avSave">保存</button>
+    </div>
+  `);
+  let newSrc = state.profile.avatar || '';
+  const prev = document.getElementById('prevImg');
+  const icon = document.getElementById('upIcon');
+  if(newSrc){ prev.src = newSrc; prev.style.display='block'; icon.style.display='none'; }
+  $('#upFile').addEventListener('change', async e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    newSrc = await fileToBase64(f);
+    if(newSrc){
+      prev.src = newSrc; prev.style.display='block';
+      icon.style.display='none';
+      $('#upWrap').classList.add('has');
+    }
+  });
+  document.getElementById('resetAv').addEventListener('click', ()=>{
+    newSrc=''; prev.style.display='none'; icon.style.display=''; $('#upWrap').classList.remove('has');
+  });
+  document.getElementById('avSave').addEventListener('click', ()=>{
+    state.profile.avatar = newSrc;
+    saveData();
+    closeModal();
+    onSet && onSet();
+    toast('头像已更新');
+  });
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+/* ================= Page Renderers ================= */
+function renderPage(){
+  pageEl.style.animation = 'none';
+  setTimeout(()=>pageEl.style.animation = 'fadeUp .35s ease', 0);
+  switch(currentPage){
+    case 'home': pageEl.innerHTML = renderHome(); bindHome(); break;
+    case 'clothes': pageEl.innerHTML = renderClothes(); bindClothes(); break;
+    case 'body': pageEl.innerHTML = renderBody(); bindBody(); break;
+    case 'calendar': pageEl.innerHTML = renderCalendar(); bindCalendar(); break;
+    case 'notes': pageEl.innerHTML = renderNotes(); bindNotes(); break;
+    case 'mao': pageEl.innerHTML = renderMao(); bindMao(); break;
+    case 'settings': pageEl.innerHTML = renderSettings(); bindSettings(); break;
+  }
+}
+
+/* ============= Home ============= */
+function renderHome(){
+  const s = stats();
+  const avatarBlock = state.profile.avatar
+    ? `<img src="${esc(state.profile.avatar)}" alt="">`
+    : `<span style="font-size:42px">🐰</span>`;
+  return `
+    <section class="home-hero">
+      <div class="avatar" id="homeAvatar">
+        ${avatarBlock}
+        <div class="avatar-edit" title="更换头像">${svgIcon('edit',12)}</div>
+      </div>
+      <h1>${esc(state.profile.title)}</h1>
+      <div class="tip">快醒醒，你还有 <b>${s.unpaid}</b> 个尾款没补 <span style="color:var(--c-text-3)">٩(ˊᗜˋ*)و</span></div>
+      <button class="icon-btn" id="editTitleBtn" style="position:absolute;top:14px;right:14px;width:36px;height:36px" title="编辑首页">
+        ${svgIcon('edit',16)}
+      </button>
+    </section>
+
+    <div class="home-stats">
+      <div class="stat-card" data-go="clothes">
+        <div class="stat-icon">${svgIcon('clothes',22)}</div>
+        <div><div class="stat-label">衣服</div><div class="stat-value">${s.clothes}</div></div>
+      </div>
+      <div class="stat-card" data-go="body">
+        <div class="stat-icon">${svgIcon('body',22)}</div>
+        <div><div class="stat-label">体子</div><div class="stat-value">${s.bodies}</div></div>
+      </div>
+    </div>
+
+    <div class="total-card">
+      <div class="label">${svgIcon('wallet',16)} 总花费</div>
+      <div class="value">${fmt(s.total)}</div>
+    </div>
+
+    <div class="jump-cards">
+      <div class="jump-card" data-go="clothes">
+        <div class="ic">${svgIcon('clothes',22)}</div>
+        <div class="info">
+          <div class="name">衣服管理</div>
+          <div class="desc">${s.clothes} 件衣物</div>
+        </div>
+        <div class="arrow">${svgIcon('arrowRight',18)}</div>
+      </div>
+      <div class="jump-card" data-go="body">
+        <div class="ic">${svgIcon('body',22)}</div>
+        <div class="info">
+          <div class="name">体子尺寸</div>
+          <div class="desc">${s.bodies} 个体子</div>
+        </div>
+        <div class="arrow">${svgIcon('arrowRight',18)}</div>
+      </div>
+    </div>
+
+    <div class="price-stats">
+      <h3>${svgIcon('wallet',16)} 按分类统计价格</h3>
+      ${renderPriceByCategory()}
+    </div>
+  `;
+}
+function renderPriceByCategory(){
+  const visCats = state.categories.filter(c=>c.visible);
+  if(visCats.length===0) return '<div class="empty"><p>暂无分类</p></div>';
+  let blocks = '';
+  for(const cat of visCats){
+    const items = state.clothes.filter(c=>c.category===cat.id);
+    const depositSum = items.reduce((s,c)=>s+Number(c.deposit||0),0);
+    const balanceSum = items.reduce((s,c)=>s+Number(c.balance||0),0);
+    const paidSum = items.reduce((s,c)=>s+(c.paid? Number(c.total||0) : Number(c.deposit||0)),0);
+    blocks += `
+      <div class="price-block">
+        <div class="price-block-head">
+          <div class="name"><span class="dot"></span>${esc(cat.name)}</div>
+          <div class="count">${items.length} 件</div>
+        </div>
+        <div class="rows">
+          <div class="row"><span class="label">定金</span><span class="val">${fmt(depositSum)}</span></div>
+          <div class="row"><span class="label">尾款</span><span class="val">${fmt(balanceSum)}</span></div>
+          <div class="row"><span class="label">总计</span><span class="val">${fmt(paidSum)}</span></div>
+        </div>
+      </div>
+    `;
+  }
+  return blocks;
+}
+function bindHome(){
+  $$('[data-go]', pageEl).forEach(el=>{
+    el.addEventListener('click', ()=> switchPage(el.dataset.go));
+  });
+  $('#homeAvatar').addEventListener('click', ()=>{
+    openAvatarModal(()=>{ updateBrand(); renderPage(); });
+  });
+  $('#editTitleBtn').addEventListener('click', ()=> openHomeEditModal());
+}
+
+function openHomeEditModal(){
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon('edit',18)} 首页编辑</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>工作台标题</label>
+        <input id="fTitle" class="text-input" value="${esc(state.profile.title)}" placeholder="例如：SuJiu的娃柜">
+      </div>
+      <div class="divider-text">更换图标</div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-bottom:10px">点击下方图标替换到指定位置</div>
+      <div id="iconPositions"></div>
+      <div id="iconChoices" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-x>取消</button>
+      <button class="btn btn-primary" id="sSave">${svgIcon('check',16)} 保存</button>
+    </div>
+  `);
+  const positions = [
+    {k:'homeClothes', label:'首页·衣服图标', icon:'clothes'},
+    {k:'homeBody', label:'首页·体子图标', icon:'body'},
+    {k:'homeTotal', label:'首页·总花费图标', icon:'wallet'},
+    {k:'pageClothes', label:'衣服页标题图标', icon:'clothes'},
+    {k:'pageBody', label:'体子页标题图标', icon:'body'},
+    {k:'pageCalendar', label:'日历页标题图标', icon:'calendar'},
+    {k:'pageNotes', label:'记事页标题图标', icon:'notes'}
+  ];
+  // Per-position state
+  const chosen = {};
+  positions.forEach(p => chosen[p.k] = p.icon);
+  let activePos = null;
+
+  function renderPos(){
+    $('#iconPositions').innerHTML = positions.map(p=>`
+      <div class="icon-pick-btn ${activePos===p.k?'on':''}" data-pos="${p.k}">
+        ${svgIcon(chosen[p.k],16)} ${p.label}
+      </div>
+    `).join('');
+    renderChoices();
+    $$('[data-pos]').forEach(el=> el.addEventListener('click', ()=>{
+      activePos = el.dataset.pos; renderPos();
+    }));
+  }
+  function renderChoices(){
+    const allIcons = ['home','home2','clothes','body','calendar','notes','mao','settings','wallet','edit','plus','search','heart','list','grid','bell','arrowRight'];
+    $('#iconChoices').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
+        ${allIcons.map(i=>`
+          <button data-icon="${i}" class="icon-btn" style="background:${activePos && chosen[activePos]===i ? 'rgba(232,90,111,.12)' : '#F4F9FB'};color:${activePos && chosen[activePos]===i ? 'var(--c-red)' : 'var(--c-dark)'};border:1.5px solid ${activePos && chosen[activePos]===i ? 'var(--c-red)' : 'transparent'};width:auto;height:46px;border-radius:10px">
+            ${svgIcon(i,18)}
+          </button>
+        `).join('')}
+      </div>
+    `;
+    $$('[data-icon]').forEach(el=> el.addEventListener('click', ()=>{
+      if(!activePos){ toast('先点击上方要替换的位置','err'); return; }
+      chosen[activePos] = el.dataset.icon;
+      renderPos();
+    }));
+  }
+  renderPos();
+
+  $('#sSave').addEventListener('click', ()=>{
+    state.profile.title = $('#fTitle').value.trim() || state.profile.title;
+    state.iconHomeClothes = chosen.homeClothes;
+    state.iconHomeBody = chosen.homeBody;
+    state.iconHomeTotal = chosen.homeTotal;
+    state.iconPageClothes = chosen.pageClothes;
+    state.iconPageBody = chosen.pageBody;
+    state.iconPageCalendar = chosen.pageCalendar;
+    state.iconPageNotes = chosen.pageNotes;
+    saveData();
+    closeModal(); renderPage();
+    toast('已保存首页设置');
+  });
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+/* ============= Clothes ============= */
+let clothesView = 'display';
+let clothesFilter = {status:'all', type:'all', cat:'all', q:''};
+/* 橱窗内进入的分类详情（点击分类卡片时设置，回退时清空） */
+let clothesCatOpen = null;
+
+function renderClothes(){
+  /* 若已选中某个分类，渲染分类详情子页面（不显示搜索/筛选/添加按钮） */
+  if(clothesCatOpen){
+    const cat = state.categories.find(c=>c.id===clothesCatOpen);
+    if(!cat){ clothesCatOpen=null; }
+    else return renderClothesCategory(cat);
+  }
+  return `
+    <div class="page-head">
+      <h1>${svgIcon(state.iconPageClothes||'clothes',24)} 衣服管理</h1>
+    </div>
+
+    <div class="clothes-head">
+      <div class="search-bar">
+        ${svgIcon('search',18)}
+        <input id="clothesSearch" placeholder="搜索衣服 / 分类……" value="${esc(clothesFilter.q)}">
+      </div>
+      <button class="link-btn" id="mgCat">${svgIcon('settings',14)} 管理分类</button>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="${clothesView==='display'?'active':''}" data-view="display">橱窗</button>
+      <button class="${clothesView==='list'?'active':''}" data-view="list">陈列</button>
+    </div>
+
+    <button class="btn btn-primary" id="addCloth" style="width:100%;margin-bottom:14px">
+      ${svgIcon('plus',16)} 添加衣服
+    </button>
+
+    <div class="filter-bar">
+      <span class="label">状态</span>
+      <select class="select" id="fStatus">
+        <option value="all" ${clothesFilter.status==='all'?'selected':''}>全部</option>
+        <option value="shipped" ${clothesFilter.status==='shipped'?'selected':''}>已出货</option>
+        <option value="not_shipped" ${clothesFilter.status==='not_shipped'?'selected':''}>未出货</option>
+      </select>
+      <span class="label">类型</span>
+      <select class="select" id="fType">
+        <option value="all" ${clothesFilter.type==='all'?'selected':''}>全部</option>
+        <option value="paid" ${clothesFilter.type==='paid'?'selected':''}>已补款</option>
+        <option value="unpaid" ${clothesFilter.type==='unpaid'?'selected':''}>未补款</option>
+      </select>
+    </div>
+    ${clothesView==='list' ? `
+    <div class="filter-bar" style="margin-top:-4px">
+      <span class="label">分类</span>
+      <select class="select" id="fCat">
+        <option value="all" ${clothesFilter.cat==='all'?'selected':''}>全部分类</option>
+        ${state.categories.filter(c=>c.visible).map(c=>`<option value="${c.id}" ${clothesFilter.cat===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+      </select>
+    </div>
+    ` : ''}
+
+    <div id="clothesContent">${
+      clothesView==='display' ? renderClothesDisplay() : renderClothesList()
+    }</div>
+  `;
+}
+
+function renderClothesDisplay(){
+  const cats = state.categories.filter(c=>c.visible);
+  if(cats.length===0) return '<div class="empty"><p>暂无可见分类，请到「管理分类」开启</p></div>';
+  const q = clothesFilter.q.toLowerCase().trim();
+  let grid = '<div class="cat-grid">';
+  for(const cat of cats){
+    const items = state.clothes.filter(c=>c.category===cat.id &&
+      (q==='' || c.name.toLowerCase().includes(q)) &&
+      (clothesFilter.status==='all' || c.status===clothesFilter.status) &&
+      (clothesFilter.type==='all' || (clothesFilter.type==='paid'? c.paid : !c.paid))
+    );
+    grid += `
+      <div class="cat-card" data-cat="${cat.id}">
+        <div class="thumb bg-${cat.bg}">${svgIcon(cat.icon,46)}</div>
+        <div class="info"><div class="nm">${esc(cat.name)}</div><div class="ct">${items.length} 件</div></div>
+      </div>
+    `;
+  }
+  grid += '</div>';
+  return grid;
+}
+
+/* 橱窗分类详情子页面：返回箭头 + 分类头 + 汇总 + 衣物卡片列表 */
+function renderClothesCategory(cat){
+  const items = state.clothes.filter(c=>c.category===cat.id &&
+    (clothesFilter.status==='all' || c.status===clothesFilter.status) &&
+    (clothesFilter.type==='all' || (clothesFilter.type==='paid'? c.paid : !c.paid))
+  );
+  const count = items.length;
+  const balanceSum = items.reduce((s,c)=>s+Math.max(0,Number(c.balance||(Number(c.total||0)-Number(c.deposit||0)))),0);
+  const totalSum = items.reduce((s,c)=>s+Number(c.total||0),0);
+  return `
+    <div class="cat-detail-head">
+      <button class="back-btn" data-cat-back aria-label="返回">${svgIcon('back',22)}</button>
+      <div class="cat-detail-icon">${svgIcon(cat.icon,30)}</div>
+      <div class="cat-detail-title">${esc(cat.name)}</div>
+    </div>
+    <div class="cat-detail-sub">${count} 件 · 尾款 <span style="color:var(--c-pink);font-weight:600">¥${fmt(balanceSum).replace('¥','')}</span> · 总计 <span style="color:var(--c-pink);font-weight:600">¥${fmt(totalSum).replace('¥','')}</span></div>
+
+    <div class="cat-detail-list">
+      ${items.length===0?'<div class="empty"><p>该分类下还没有衣物，点右上「添加衣服」录入</p></div>':''}
+      ${items.map(item=>`
+        <div class="cat-detail-item" data-id="${item.id}">
+          <div class="cat-thumb bg-${cat.bg}">
+            ${item.image ? `<img src="${esc(item.image)}">` : svgIcon(cat.icon,42)}
+            <span class="pay-pill ${item.paid?'paid':'unpaid'}">${item.paid?'已补款':'未补款'}</span>
+          </div>
+          <div class="cat-item-body">
+            <div class="cat-item-name">
+              ${esc(item.name)}
+              <span class="ship-pill ${item.status==='shipped'?'shipped':'not-shipped'}">${item.status==='shipped'?'已出货':'未出货'}</span>
+            </div>
+            <div class="cat-item-meta">${esc(cat.name)}${item.size?' · '+esc(item.size):''}</div>
+            <div class="cat-item-price">¥${fmt(item.total).replace('¥','')}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <button class="add-item-fab" data-add-current-cat aria-label="添加衣服">${svgIcon('plus',22)}</button>
+  `;
+}
+function renderClothesList(){
+  const cats = state.categories.filter(c=>c.visible && (clothesFilter.cat==='all' || c.id===clothesFilter.cat));
+  const q = clothesFilter.q.toLowerCase().trim();
+  let html = '';
+  let any = false;
+  for(const cat of cats){
+    const items = state.clothes.filter(c=>c.category===cat.id &&
+      (q==='' || c.name.toLowerCase().includes(q)) &&
+      (clothesFilter.status==='all' || c.status===clothesFilter.status) &&
+      (clothesFilter.type==='all' || (clothesFilter.type==='paid'? c.paid : !c.paid))
+    );
+    if(items.length===0) continue;
+    any = true;
+    const depositSum = items.reduce((s,c)=>s+Number(c.deposit||0),0);
+    const totalSum = items.reduce((s,c)=>s+Number(c.total||0),0);
+    html += `
+      <div class="cloth-group-head">
+        ${svgIcon(cat.icon,18)} <span style="margin-left:4px">${esc(cat.name)}</span>
+        <span class="tag-count">${items.length}件 · 定金 <span style="color:var(--c-pink);font-weight:600">¥${depositSum}</span> · 尾款 <span style="color:var(--c-pink);font-weight:600">¥${items.reduce((s,c)=>s+Number(c.balance||0),0)}</span> · 总 <span style="color:var(--c-pink);font-weight:600">¥${totalSum}</span></span>
+      </div>
+    `;
+    for(const item of items){
+      const statusTag = item.status==='shipped'
+        ? `<span class="tag shipped">已出货</span>`
+        : `<span class="tag not-shipped">未出货</span>`;
+      const paidTag = item.paid
+        ? `<span class="tag paid">已补款</span>`
+        : `<span class="tag unpaid">未补款</span>`;
+      const paidLabel = item.paid ? '已补' : '未补';
+      html += `
+        <div class="cloth-list-card" data-id="${item.id}">
+          <div class="lc-thumb">
+            ${item.image ? `<img src="${esc(item.image)}">` : svgIcon(cat.icon,38)}
+          </div>
+          <div class="lc-info">
+            <div class="lc-row1">
+              <span class="lc-name">${esc(item.name)}</span>
+              ${paidTag}
+              ${statusTag}
+            </div>
+            ${item.note ? `<div class="lc-desc">${esc(item.note)}</div>` : ''}
+            <div class="lc-price-row">
+              <div class="lc-price-col"><div class="l">定金</div><div class="v">¥${Number(item.deposit||0)}</div></div>
+              <div class="lc-price-col"><div class="l">尾款</div><div class="v">¥${Number(item.balance||0)}</div></div>
+              <div class="lc-price-col"><div class="l">总价</div><div class="v">¥${Number(item.total||0)}</div></div>
+            </div>
+          </div>
+          <div class="lc-check ${item.paid?'on':''}" data-pay="${item.id}" title="点击切换补款状态">
+            <div class="lc-check-box">${item.paid ? svgIcon('check',14) : ''}</div>
+            <span>${paidLabel}</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+  if(!any) return '<div class="empty"><p>暂无符合条件的衣物</p></div>';
+  return html;
+}
+
+function bindClothes(){
+  $$('[data-view]', pageEl).forEach(b => b.addEventListener('click', ()=>{
+    clothesView = b.dataset.view;
+    clothesCatOpen = null; /* 切换视图时退出分类详情 */
+    renderPage();
+  }));
+  /* 分类详情子页面：返回、添加（沿用当前分类）、衣物点击编辑 —— 必须最先绑定，避免下方元素缺失时中断 */
+  $$('[data-cat-back]', pageEl).forEach(b => b.addEventListener('click', e=>{
+    e.stopPropagation();
+    clothesCatOpen = null;
+    renderPage();
+  }));
+  $$('[data-add-current-cat]', pageEl).forEach(b => b.addEventListener('click', ()=>{
+    const pre = {category: clothesCatOpen};
+    openClothModal(pre);
+  }));
+
+  const addBtn = $('#addCloth');
+  if(addBtn) addBtn.addEventListener('click', ()=> openClothModal());
+  const mgBtn = $('#mgCat');
+  if(mgBtn) mgBtn.addEventListener('click', ()=> openCategoryModal());
+  const searchEl = $('#clothesSearch');
+  if(searchEl) searchEl.addEventListener('input', e=>{
+    clothesFilter.q = e.target.value;
+    renderPage();
+    const inp = $('#clothesSearch');
+    if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  });
+  const fsEl = $('#fStatus');
+  if(fsEl) fsEl.addEventListener('change', e=>{ clothesFilter.status=e.target.value; renderPage(); });
+  const ftEl = $('#fType');
+  if(ftEl) ftEl.addEventListener('change', e=>{ clothesFilter.type=e.target.value; renderPage(); });
+  const fCatEl = $('#fCat');
+  if(fCatEl) fCatEl.addEventListener('change', e=>{ clothesFilter.cat=e.target.value; renderPage(); });
+
+  $$('[data-cat]', pageEl).forEach(el=>{
+    el.addEventListener('click', ()=>{
+      clothesCatOpen = el.dataset.cat;
+      renderPage();
+    });
+  });
+
+  $$('[data-pay]', pageEl).forEach(b=> b.addEventListener('click', e=>{
+    e.stopPropagation();
+    const c = state.clothes.find(x=>x.id===b.dataset.pay);
+    if(c){ c.paid=!c.paid; saveData(); renderPage(); toast(c.paid?'已标记为补完':'已取消标记'); }
+  }));
+  $$('[data-id]', pageEl).forEach(b => b.addEventListener('click', ()=>{
+    const c = state.clothes.find(x=>x.id===b.dataset.id);
+    if(c) openClothModal(c);
+  }));
+}
+
+function openClothModal(existing){
+  const cats = state.categories;
+  const isEdit = !!(existing && existing.id);
+  const defaults = {name:'', size:'', status:'shipped', deposit:'', balance:'', total:'', category:cats.length?cats[0].id:'', note:'', image:'', paid:false};
+  const data = Object.assign({}, defaults, existing||{});
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon('clothes',18)} ${isEdit?'编辑衣服':'添加新衣'}</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>上传图片 <span class="optional">（选填）</span></label>
+        <div class="upload-area" id="upWrap">
+          <img id="prevImg" src="${esc(data.image)}" style="${data.image?'':'display:none'}">
+          <div class="ic" id="upIcon" style="${data.image?'display:none':''}">${svgIcon('upload',36)}</div>
+          <div class="ph-txt" id="phTxt" style="${data.image?'display:none':''}">点击上传图片</div>
+          <input type="file" accept="image/*" id="upFile">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>名称 <span class="must">*</span></label>
+        <input id="fName" placeholder="请输入名称" value="${esc(data.name)}">
+      </div>
+      <div class="form-row">
+        <label>尺寸 <span class="optional">（选填）</span></label>
+        <input id="fSize" placeholder="如 SD 1/4 / 4分" value="${esc(data.size)}">
+      </div>
+      <div class="form-row row-split">
+        <div>
+          <label>出货状态</label>
+          <select class="select" id="fStatus" style="width:100%">
+            <option value="shipped" ${data.status==='shipped'?'selected':''}>已出货</option>
+            <option value="not_shipped" ${data.status==='not_shipped'?'selected':''}>未出货</option>
+          </select>
+        </div>
+        <div>
+          <label>补款状态</label>
+          <select class="select" id="fPaid" style="width:100%">
+            <option value="1" ${data.paid?'selected':''}>已补款</option>
+            <option value="0" ${!data.paid?'selected':''}>未补款</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row row-split">
+        <div><label>定金 <span class="optional">（元）</span></label><input type="number" id="fDeposit" placeholder="0.0" value="${esc(data.deposit)}"></div>
+        <div><label>尾款 <span class="optional">（元）</span></label><input type="number" id="fBalance" placeholder="0.0" value="${esc(data.balance)}"></div>
+      </div>
+      <div class="form-row">
+        <label>全款 <span class="optional">（元）</span></label>
+        <input type="number" id="fTotal" placeholder="0.0" value="${esc(data.total)}">
+      </div>
+      <div class="form-row">
+        <label>分类</label>
+        <select class="select" id="fCat" style="width:100%">
+          ${cats.map(c=>`<option value="${c.id}" ${data.category===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>备注 <span class="optional">（选填）</span></label>
+        <textarea id="fNote" placeholder="一些补充信息……">${esc(data.note)}</textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      ${isEdit?'<button class="btn btn-outline" id="delCloth" style="margin-right:auto">删除</button>':''}
+      <button class="btn btn-ghost" data-x>取消</button>
+      <button class="btn btn-primary" id="sSave">${svgIcon('check',16)} 保存</button>
+    </div>
+  `);
+  let newImg = data.image || '';
+  $('#upFile').addEventListener('change', async e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    newImg = await fileToBase64(f);
+    if(newImg){
+      $('#prevImg').src = newImg; $('#prevImg').style.display='block';
+      $('#upIcon').style.display='none'; $('#phTxt').style.display='none';
+      $('#upWrap').classList.add('has');
+    } else {
+      toast('图片读取失败，请换一张试试','err');
+    }
+  });
+  $('#sSave').addEventListener('click', ()=>{
+    const name = $('#fName').value.trim();
+    if(!name){ toast('请填写名称','err'); return; }
+    const payload = {
+      id: existing? existing.id : uid(),
+      name,
+      size: $('#fSize').value.trim(),
+      status: $('#fStatus').value,
+      deposit: parseFloat($('#fDeposit').value)||0,
+      balance: parseFloat($('#fBalance').value)||0,
+      total: parseFloat($('#fTotal').value)||0,
+      category: $('#fCat').value,
+      note: $('#fNote').value.trim(),
+      image: newImg,
+      paid: $('#fPaid').value==='1',
+      createdAt: existing? existing.createdAt : Date.now()
+    };
+    if(isEdit){
+      const i = state.clothes.findIndex(c=>c.id===existing.id);
+      if(i>=0) state.clothes[i] = payload;
+    } else {
+      state.clothes.unshift(payload);
+    }
+    saveData(); closeModal(); renderPage(); toast(isEdit?'已保存修改':'已添加衣服');
+  });
+  if(isEdit){
+    $('#delCloth').addEventListener('click', ()=>{
+      confirmAction('删除衣服','确定删除这件衣服吗？此操作不可撤销。',()=>{
+        state.clothes = state.clothes.filter(c=>c.id!==existing.id);
+        saveData(); closeModal(); renderPage(); toast('已删除');
+      });
+    });
+  }
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+function openCategoryModal(){
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon('list',18)} 管理分类</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--c-text-2);margin-bottom:10px">分类列表 <span style="color:var(--c-text-3)">(勾选显示，可删除)</span></div>
+      <div id="catList">${state.categories.map(c=>`
+        <div class="cat-row" data-id="${c.id}" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--c-line)">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin:0">
+            <input type="checkbox" ${c.visible?'checked':''} data-vis="${c.id}" style="accent-color:var(--c-blue);width:18px;height:18px">
+          </label>
+          <div class="thumb bg-${c.bg}" style="width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff">${svgIcon(c.icon,20)}</div>
+          <input data-name="${c.id}" value="${esc(c.name)}" style="flex:1;padding:8px 10px;border-radius:8px;background:#F4F9FB;border:1.5px solid transparent;font-size:14px">
+          <span style="font-size:11px;color:var(--c-text-3);background:rgba(175,219,230,.3);padding:3px 8px;border-radius:8px">默认</span>
+          <button data-del="${c.id}" style="color:var(--c-text-3);font-size:13px;padding:4px 8px" title="删除">${svgIcon('trash',14)}</button>
+        </div>
+      `).join('')}</div>
+
+      <div style="margin-top:16px;font-size:13px;color:var(--c-text-2)">新增自定义分类</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="newCatName" placeholder="例如：洛丽塔、汉服……" style="flex:1;padding:10px 14px;border-radius:12px;background:#F4F9FB;font-size:15px">
+        <button class="btn btn-primary" id="addCatBtn" style="padding:8px 16px;min-height:44px">新增</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-x>关闭</button>
+    </div>
+  `);
+  $$('[data-vis]', modalContent).forEach(el => el.addEventListener('change', e=>{
+    const c = state.categories.find(x=>x.id===el.dataset.vis);
+    if(c) c.visible = el.checked; saveData();
+  }));
+  $$('[data-name]', modalContent).forEach(el => el.addEventListener('change', e=>{
+    const c = state.categories.find(x=>x.id===el.dataset.name);
+    if(c){ c.name = el.value.trim()||c.name; saveData(); }
+  }));
+  $$('[data-del]', modalContent).forEach(el => el.addEventListener('click', ()=>{
+    const c = state.categories.find(x=>x.id===el.dataset.del);
+    const inUse = state.clothes.some(cl=>cl.category===c.id);
+    confirmAction('删除分类', `确认删除分类「${esc(c.name)}」？${inUse?'该分类下还有衣服，删除后这些衣服分类会清空。':''}`, ()=>{
+      state.categories = state.categories.filter(x=>x.id!==c.id);
+      if(inUse) state.clothes.forEach(cl=>{ if(cl.category===c.id) cl.category=''; });
+      saveData(); closeModal(); openCategoryModal(); renderPage(); toast('已删除分类');
+    });
+  }));
+  $('#addCatBtn').addEventListener('click', ()=>{
+    const n = $('#newCatName').value.trim();
+    if(!n){ toast('请输入分类名','err'); return; }
+    state.categories.push({
+      id:'cat_'+uid(),
+      name:n, visible:true,
+      icon: state.categories.length%2===0 ? 'acc':'gufeng',
+      bg: (state.categories.length%5)+1
+    });
+    saveData(); closeModal(); openCategoryModal(); renderPage(); toast('已新增分类');
+  });
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+function openCategoryItemsModal(cat){
+  const items = state.clothes.filter(c=>c.category===cat.id);
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon(cat.icon,18)} ${esc(cat.name)} · ${items.length} 件</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      ${items.length===0?'<div class="empty"><p>暂无衣物</p></div>':''}
+      ${items.map(item=>`
+        <div class="cloth-item" style="margin-bottom:10px">
+          <div class="cloth-check ${item.paid?'on':''}" data-pay-mid="${item.id}">${item.paid?svgIcon('check',12):''}</div>
+          <div class="thumb bg-${cat.bg}">${item.image?`<img src="${esc(item.image)}">`:svgIcon(cat.icon,30)}</div>
+          <div class="body">
+            <div class="nm">${esc(item.name)}</div>
+            <div class="meta"><span class="tag">${esc(item.size||'通用')}</span><span class="tag">${item.status==='shipped'?'已出货':'未出货'}</span></div>
+            <div class="price">${fmt(item.total)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-x>关闭</button>
+    </div>
+  `);
+  $$('[data-pay-mid]', modalContent).forEach(el => el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const c = state.clothes.find(x=>x.id===el.dataset.payMid);
+    if(c){ c.paid=!c.paid; saveData(); closeModal(); openCategoryItemsModal(cat); renderPage(); }
+  }));
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+/* ============= Body ============= */
+let bodyCompareOpen = true;
+let cmpSelected = new Set();
+const BODY_FIELDS = [
+  {k:'size',n:'尺寸'}, {k:'height',n:'身高'}, {k:'head',n:'头围'},
+  {k:'neck',n:'颈围'}, {k:'shoulder',n:'肩宽'}, {k:'chest',n:'胸围'},
+  {k:'waist',n:'腰围'}, {k:'hip',n:'臀围'}, {k:'leg',n:'腿长'}
+];
+
+function renderBody(){
+  const mine = state.bodies.filter(b=>b.isMine);
+  const others = state.bodies.filter(b=>!b.isMine);
+  return `
+    <div class="page-head">
+      <h1>${svgIcon(state.iconPageBody||'body',24)} 体子尺寸</h1>
+    </div>
+
+    <div class="search-bar">
+      ${svgIcon('search',18)}
+      <input id="bodySearch" placeholder="搜索体子名称……">
+    </div>
+
+    <section class="body-section">
+      <div class="body-section-head">
+        <div class="bsh-icon">${svgIcon('body',18)}</div>
+        <div class="bsh-title">我的体子</div>
+        <span class="bsh-count">${mine.length}</span>
+        <div class="bsh-actions">
+          <button class="ib add-btn" id="addMine" data-add="mine">${svgIcon('plus',14)} 添加</button>
+        </div>
+      </div>
+      ${mine.length===0 ? `
+        <div class="body-empty">
+          <div class="be-icon">${svgIcon('body',32)}</div>
+          <p>暂无体子，点击右上方「添加」录入</p>
+        </div>
+      ` : mine.map(b=>bodyCardNew(b)).join('')}
+    </section>
+
+    <section class="body-section">
+      <div class="body-section-head">
+        <div class="bsh-icon">${svgIcon('list',18)}</div>
+        <div class="bsh-title">其他体子</div>
+        <span class="bsh-count">${others.length}</span>
+        <div class="bsh-actions">
+          <button class="ib add-btn" id="addOther" data-add="other">${svgIcon('plus',14)} 添加</button>
+        </div>
+      </div>
+      ${others.length===0 ? `
+        <div class="body-empty">
+          <div class="be-icon">${svgIcon('body',32)}</div>
+          <p>暂无其他体子，点击右上方「添加」录入</p>
+        </div>
+      ` : others.map(b=>bodyCardNew(b)).join('')}
+    </section>
+
+    <div class="compare-panel ${bodyCompareOpen?'':'collapsed'}" id="comparePanel">
+      <div class="compare-head" id="cmpHead">
+        <h4>${svgIcon('grid',16)} 体子尺寸对比</h4>
+        <button class="btn btn-outline" style="padding:6px 14px;min-height:36px;font-size:12px" id="cmpToggle">
+          ${svgIcon(bodyCompareOpen?'collapse':'expand',14)} ${bodyCompareOpen?'收起对比':'展开对比'}
+        </button>
+      </div>
+      ${bodyCompareOpen ? `
+        <div class="compare-tags" id="cmpTags">
+          ${state.bodies.map(b=>`
+            <label class="compare-tag ${cmpSelected.has(b.id)?'on':''}" data-cmp="${b.id}">
+              ${svgIcon('body',12)} ${esc(b.name)}
+            </label>
+          `).join('')}
+        </div>
+        <div id="cmpTable">${renderCompareTable()}</div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function bodyCardNew(b){
+  const fieldHtml = BODY_FIELDS.map(f=>`
+    <div class="bc-field">
+      <div class="fl">${f.n}</div>
+      <div class="fv">${esc(b[f.k]||'-')}</div>
+    </div>
+  `).join('');
+  const picHtml = b.image
+    ? `<img src="${esc(b.image)}">`
+    : svgIcon('body',36);
+  return `
+    <div class="body-card-new" data-body="${b.id}">
+      <div class="bc-top">
+        <div class="bc-thumb">${picHtml}</div>
+        <div class="bc-meta">
+          <div class="bc-name">${esc(b.name)}</div>
+          <div class="bc-tags">
+            <span class="pill size">${esc(b.size||'未填尺寸')}</span>
+            <span class="pill ${b.isMine?'mine':'other'}">${b.isMine?'我的':'其他'}</span>
+          </div>
+        </div>
+      </div>
+      <div class="bc-fields">${fieldHtml}</div>
+    </div>
+  `;
+}
+
+function renderCompareTable(){
+  if(cmpSelected.size===0){
+    return '<div class="compare-empty">请在上方勾选要对比的体子</div>';
+  }
+  const sel = state.bodies.filter(b=>cmpSelected.has(b.id));
+  const cols = sel.map(b=>`<th>${esc(b.name)}</th>`).join('');
+  let rows = '';
+  for(const f of BODY_FIELDS){
+    rows += `<tr><th>${f.n}</th>${sel.map(b=>`<td>${esc(b[f.k]||'-')}</td>`).join('')}</tr>`;
+  }
+  return `
+    <table class="compare-table">
+      <thead><tr><th>项目</th>${cols}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:11px;color:var(--c-text-3);text-align:center;margin-top:6px">点击表格可放大查看</div>
+  `;
+}
+
+function bindBody(){
+  $$('[data-add]', pageEl).forEach(el => el.addEventListener('click', ()=>{
+    openBodyModal(null, el.dataset.add==='mine');
+  }));
+  $('#bodySearch').addEventListener('input', e=>{
+    const q = e.target.value.toLowerCase();
+    $$('[data-body]', pageEl).forEach(el=>{
+      const b = state.bodies.find(x=>x.id===el.dataset.body);
+      el.style.display = (b.name.toLowerCase().includes(q)) ? '' : 'none';
+    });
+  });
+  $$('[data-body]', pageEl).forEach(el => el.addEventListener('click', ()=>{
+    const b = state.bodies.find(x=>x.id===el.dataset.body);
+    openBodyModal(b);
+  }));
+
+  $('#cmpToggle').addEventListener('click', e=>{
+    e.stopPropagation();
+    bodyCompareOpen = !bodyCompareOpen;
+    renderPage();
+  });
+  $('#cmpHead').addEventListener('click', e=>{
+    if(e.target.closest('#cmpToggle')) return;
+    bodyCompareOpen = !bodyCompareOpen;
+    renderPage();
+  });
+  $$('[data-cmp]', pageEl).forEach(el => el.addEventListener('click', ()=>{
+    if(cmpSelected.has(el.dataset.cmp)) cmpSelected.delete(el.dataset.cmp);
+    else cmpSelected.add(el.dataset.cmp);
+    renderPage();
+  }));
+  const tableWrap = $('#cmpTable');
+  if(tableWrap && cmpSelected.size>0){
+    tableWrap.addEventListener('click', ()=>{
+      const sel = state.bodies.filter(b=>cmpSelected.has(b.id));
+      let rows = '';
+      for(const f of BODY_FIELDS){
+        rows += `<tr style="border-bottom:1px dashed var(--c-line)"><th style="padding:12px;background:rgba(175,219,230,.3);text-align:left;color:var(--c-dark);font-weight:600">${f.n}</th>${sel.map(b=>`<td style="padding:12px;text-align:center;color:var(--c-dark)">${esc(b[f.k]||'-')}</td>`).join('')}</tr>`;
+      }
+      const cols = sel.map(b=>`<th style="padding:12px;background:rgba(175,219,230,.2);color:var(--c-dark)">${esc(b.name)}</th>`).join('');
+      openModal(`
+        <div class="modal-head"><h3>${svgIcon('grid',18)} 尺寸对比详情</h3><button class="modal-close" data-x>${svgIcon('x',18)}</button></div>
+        <div class="modal-body" style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;min-width:300px">
+            <thead><tr style="border-bottom:1px dashed var(--c-line)"><th style="padding:12px;text-align:left;color:var(--c-dark);font-weight:600">项目</th>${cols}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div class="modal-foot"><button class="btn btn-ghost" data-x>关闭</button></div>
+      `);
+      $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+    });
+  }
+}
+
+function openBodyModal(existing, defaultMine){
+  const isEdit = !!existing;
+  const data = existing || {name:'', size:'', height:'', head:'', neck:'', shoulder:'', chest:'', waist:'', hip:'', leg:'', image:'', isMine: defaultMine!==false, note:''};
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon('body',18)} ${isEdit?'编辑体子':'录入体子'}</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>体子照片 <span class="optional">（选填）</span></label>
+        <div class="upload-area" id="upWrap">
+          <img id="prevImg" src="${esc(data.image)}" style="${data.image?'':'display:none'}">
+          <div class="ic" id="upIcon" style="${data.image?'display:none':''}">${svgIcon('upload',36)}</div>
+          <div class="ph-txt" id="phTxt" style="${data.image?'display:none':''}">点击上传</div>
+          <input type="file" accept="image/*" id="upFile">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>名称 <span class="must">*</span></label>
+        <input id="fName" placeholder="如 SD 分裂体·小克" value="${esc(data.name)}">
+      </div>
+      <div class="form-row">
+        <label>归属</label>
+        <select class="select" id="fMine" style="width:100%">
+          <option value="1" ${data.isMine?'selected':''}>我的体子</option>
+          <option value="0" ${!data.isMine?'selected':''}>其他体子</option>
+        </select>
+      </div>
+      <div class="form-row row-split">
+        <div><label>尺寸</label><input id="fSize" placeholder="如 1/4" value="${esc(data.size)}"></div>
+        <div><label>身高</label><input id="fHeight" placeholder="cm" value="${esc(data.height)}"></div>
+      </div>
+      <div class="form-row row-split">
+        <div><label>头围</label><input id="fHead" value="${esc(data.head)}"></div>
+        <div><label>颈围</label><input id="fNeck" value="${esc(data.neck)}"></div>
+      </div>
+      <div class="form-row row-split">
+        <div><label>肩宽</label><input id="fShoulder" value="${esc(data.shoulder)}"></div>
+        <div><label>胸围</label><input id="fChest" value="${esc(data.chest)}"></div>
+      </div>
+      <div class="form-row row-split">
+        <div><label>腰围</label><input id="fWaist" value="${esc(data.waist)}"></div>
+        <div><label>臀围</label><input id="fHip" value="${esc(data.hip)}"></div>
+      </div>
+      <div class="form-row">
+        <label>腿长</label>
+        <input id="fLeg" value="${esc(data.leg)}">
+      </div>
+      <div class="form-row">
+        <label>备注</label>
+        <textarea id="fNote">${esc(data.note)}</textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      ${isEdit?'<button class="btn btn-outline" id="delBody" style="margin-right:auto">删除</button>':''}
+      <button class="btn btn-ghost" data-x>取消</button>
+      <button class="btn btn-primary" id="sSave">${svgIcon('check',16)} 保存</button>
+    </div>
+  `);
+  let newImg = data.image||'';
+  $('#upFile').addEventListener('change', async e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    newImg = await fileToBase64(f);
+    if(newImg){
+      $('#prevImg').src = newImg; $('#prevImg').style.display='block';
+      $('#upIcon').style.display='none'; $('#phTxt').style.display='none';
+      $('#upWrap').classList.add('has');
+    } else {
+      toast('图片读取失败，请换一张试试','err');
+    }
+  });
+  $('#sSave').addEventListener('click', ()=>{
+    const name = $('#fName').value.trim();
+    if(!name){ toast('请填写名称','err'); return; }
+    const payload = {
+      id: existing? existing.id : uid(),
+      name,
+      isMine: $('#fMine').value==='1',
+      size: $('#fSize').value.trim(),
+      height: $('#fHeight').value.trim(),
+      head: $('#fHead').value.trim(),
+      neck: $('#fNeck').value.trim(),
+      shoulder: $('#fShoulder').value.trim(),
+      chest: $('#fChest').value.trim(),
+      waist: $('#fWaist').value.trim(),
+      hip: $('#fHip').value.trim(),
+      leg: $('#fLeg').value.trim(),
+      image: newImg,
+      note: $('#fNote').value.trim()
+    };
+    if(isEdit){
+      const i = state.bodies.findIndex(b=>b.id===existing.id);
+      if(i>=0) state.bodies[i] = payload;
+    } else {
+      state.bodies.unshift(payload);
+    }
+    saveData(); closeModal(); renderPage(); toast(isEdit?'已保存修改':'已录入体子');
+  });
+  if(isEdit){
+    $('#delBody').addEventListener('click', ()=>{
+      confirmAction('删除体子','确认删除此体子？', ()=>{
+        state.bodies = state.bodies.filter(b=>b.id!==existing.id);
+        saveData(); closeModal(); renderPage(); toast('已删除');
+      });
+    });
+  }
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+/* ============= Calendar ============= */
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function renderCalendar(){
+  return `
+    <div class="page-head">
+      <h1>${svgIcon(state.iconPageCalendar||'calendar',24)} 日历</h1>
+    </div>
+
+    <div class="search-bar">
+      ${svgIcon('search',18)}
+      <input id="wishSearch" placeholder="搜索想买的物品……">
+    </div>
+
+    <div class="calendar" style="margin-bottom:18px">
+      <div class="calendar-head">
+        <h3>${svgIcon('calendar',16)} 日历</h3>
+        <div class="calendar-nav">
+          <button id="prevM">${svgIcon('arrowLeft',14)}</button>
+          <button id="nextM">${svgIcon('arrowRight',14)}</button>
+        </div>
+      </div>
+      <h4 style="text-align:center;color:var(--c-dark);font-weight:500;margin-bottom:12px">${calYear}年${calMonth+1}月</h4>
+      <div class="calendar-grid">
+        ${['日','一','二','三','四','五','六'].map(d=>`<div class="calendar-dow">${d}</div>`).join('')}
+        ${renderCalDays()}
+      </div>
+    </div>
+
+    <div class="wish-section-title">
+      <span class="ico">${svgIcon('list',18)}</span>
+      <span>我想买</span>
+      <button class="wish-add-btn" id="addWish">${svgIcon('plus',14)} 添加</button>
+    </div>
+
+    <div id="wishList">${renderWishItems()}</div>
+  `;
+}
+function renderWishItems(){
+  const search = ($('#wishSearch')?.value || '').toLowerCase();
+  const items = state.wishes.filter(w => !search || w.name.toLowerCase().includes(search));
+  if(items.length===0) return '<div class="empty"><p>还没有想买的东西，点击「添加」记录一下吧~</p></div>';
+  // group by date desc
+  const groups = {};
+  items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  for(const w of items){
+    const k = w.date || '未排期';
+    if(!groups[k]) groups[k] = [];
+    groups[k].push(w);
+  }
+  let html = '';
+  for(const date of Object.keys(groups)){
+    if(date!=='未排期') html += `<div class="wish-day-head">▼ ${esc(date)}</div>`;
+    for(const w of groups[date]){
+      const parts = [];
+      if(w.openTime) parts.push(`开售：${esc(w.openTime)}`);
+      if(w.note) parts.push(esc(w.note));
+      html += `
+        <div class="wish-item-new" data-wish="${w.id}">
+          <div class="wi-head">
+            <span class="wi-dot"></span>
+            <span class="wi-name">${esc(w.name)}</span>
+            <span class="wi-price">${fmt(w.price||0)}</span>
+          </div>
+          ${parts.length?`<div class="wi-meta">${parts.join(' · ')}</div>`:''}
+        </div>
+      `;
+    }
+  }
+  return html;
+}
+function renderCalDays(){
+  const first = new Date(calYear, calMonth, 1);
+  const days = new Date(calYear, calMonth+1, 0).getDate();
+  const start = first.getDay();
+  const tdy = new Date();
+  const tdyKey = `${tdy.getFullYear()}-${tdy.getMonth()}-${tdy.getDate()}`;
+  let html = '';
+  for(let i=0;i<start;i++) html += '<div class="calendar-day muted"></div>';
+  for(let d=1;d<=days;d++){
+    const key = `${calYear}-${calMonth}-${d}`;
+    const isTdy = key === tdyKey;
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const has = state.wishes.some(w=>w.date===ds);
+    html += `<div class="calendar-day ${isTdy?'today':''} ${has?'has':''}" data-day="${d}">${d}</div>`;
+  }
+  return html;
+}
+function bindCalendar(){
+  $('#addWish').addEventListener('click', ()=> openWishModal());
+  $('#wishSearch').addEventListener('input', e=>{
+    renderPage();
+    const inp = $('#wishSearch');
+    if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  });
+  $$('[data-wish]').forEach(el => el.addEventListener('click', ()=>{
+    const w = state.wishes.find(x=>x.id===el.dataset.wish);
+    openWishModal(w);
+  }));
+  $('#prevM').addEventListener('click', ()=>{
+    calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderPage();
+  });
+  $('#nextM').addEventListener('click', ()=>{
+    calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderPage();
+  });
+  $$('[data-day]').forEach(el => el.addEventListener('click', ()=>{
+    const d = el.dataset.day;
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const items = state.wishes.filter(w=>w.date===dateStr);
+    if(items.length===0){ toast(`${dateStr} 没有想买的安排`); return; }
+    openModal(`
+      <div class="modal-head"><h3>${svgIcon('calendar',18)} ${dateStr}</h3><button class="modal-close" data-x>${svgIcon('x',18)}</button></div>
+      <div class="modal-body">
+        ${items.map(w=>`<div class="wish-item-new" style="margin-bottom:8px"><div class="wi-head"><span class="wi-dot"></span><span class="wi-name">${esc(w.name)}</span><span class="wi-price">${fmt(w.price||0)}</span></div>${w.openTime?`<div class="wi-meta">开售：${esc(w.openTime)}</div>`:''}</div>`).join('')}
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" data-x>关闭</button></div>
+    `);
+    $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+  }));
+}
+function openWishModal(existing){
+  const isEdit = !!existing;
+  const data = existing || {name:'', price:'', date:'', openTime:'', note:''};
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon('heart',18)} ${isEdit?'编辑想买的':'我想买'}</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>名称</label>
+        <input id="fName" placeholder="例如：SD 1/4 蕾丝裙" value="${esc(data.name)}">
+      </div>
+      <div class="form-row">
+        <label>价格 <span class="optional">（元）</span></label>
+        <input type="number" id="fPrice" placeholder="0.0" value="${esc(data.price)}">
+      </div>
+      <div class="form-row">
+        <label>日期 <span class="must">（必填）</span></label>
+        <input type="date" id="fDate" value="${esc(data.date)}">
+      </div>
+      <div class="form-row">
+        <label>开售时间 <span class="optional">（选填）</span></label>
+        <input type="time" id="fTime" value="${esc(data.openTime)}">
+      </div>
+      <div class="form-row">
+        <label>备注</label>
+        <textarea id="fNote" placeholder="一些补充信息……">${esc(data.note)}</textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      ${isEdit?'<button class="btn btn-outline" id="delWish" style="margin-right:auto">删除</button>':''}
+      <button class="btn btn-ghost" data-x>取消</button>
+      <button class="btn btn-primary" id="sSave">${svgIcon('check',16)} 保存</button>
+    </div>
+  `);
+  $('#sSave').addEventListener('click', ()=>{
+    const name = $('#fName').value.trim();
+    const date = $('#fDate').value;
+    if(!date){ toast('请选择日期','err'); return; }
+    const payload = {
+      id: existing? existing.id : uid(),
+      name,
+      price: parseFloat($('#fPrice').value)||0,
+      date,
+      openTime: $('#fTime').value,
+      note: $('#fNote').value.trim()
+    };
+    if(isEdit){
+      const i = state.wishes.findIndex(w=>w.id===existing.id);
+      if(i>=0) state.wishes[i] = payload;
+    } else {
+      state.wishes.unshift(payload);
+    }
+    saveData(); closeModal(); renderPage(); toast(isEdit?'已保存':'已记录想买');
+  });
+  if(isEdit){
+    $('#delWish').addEventListener('click', ()=>{
+      confirmAction('删除想买的','确认删除？',()=>{
+        state.wishes = state.wishes.filter(w=>w.id!==existing.id);
+        saveData(); closeModal(); renderPage(); toast('已删除');
+      });
+    });
+  }
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+/* ============= Notes ============= */
+function renderNotes(){
+  return `
+    <div class="notes-head">
+      <h2>${svgIcon(state.iconPageNotes||'notes',22)} 记事本</h2>
+      <button class="notes-add-btn" id="addNote">${svgIcon('plus',14)} 新建</button>
+    </div>
+
+    ${state.notes.length===0 ? `
+      <div class="notes-empty">
+        <div class="ic">${svgIcon('notes',40)}</div>
+        <p>还没有便利贴，点击下方按钮新建一张吧</p>
+        <button class="notes-add-btn" id="addNote2">${svgIcon('plus',14)} 新建便利贴</button>
+      </div>
+    ` : `
+      <button class="notes-add-btn" id="addNote2" style="margin-bottom:18px">${svgIcon('plus',14)} 新建便利贴</button>
+      <div class="notes-grid">
+        ${state.notes.map(n=>noteCardHtml(n)).join('')}
+      </div>
+    `}
+  `;
+}
+function noteCardHtml(n){
+  return `
+    <div class="note-card" style="background:${esc(n.color)}" data-note="${n.id}">
+      <div class="body">${n.html||'<span style="color:rgba(28,67,102,.4)">(空)</span>'}</div>
+      <div class="toolbar">
+        <button data-nedit="${n.id}" title="编辑">${svgIcon('edit',12)}</button>
+        <button data-ndel="${n.id}" title="删除">${svgIcon('trash',12)}</button>
+      </div>
+    </div>
+  `;
+}
+function bindNotes(){
+  const handler = ()=> openNoteModal();
+  $('#addNote')?.addEventListener('click', handler);
+  $('#addNote2')?.addEventListener('click', handler);
+  $$('[data-note]', pageEl).forEach(el => el.addEventListener('click', e=>{
+    if(e.target.closest('[data-nedit],[data-ndel]')) return;
+    const n = state.notes.find(x=>x.id===el.dataset.note);
+    if(n) openNoteModal(n);
+  }));
+  $$('[data-nedit]').forEach(el => el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const n = state.notes.find(x=>x.id===el.dataset.nedit);
+    if(n) openNoteModal(n);
+  }));
+  $$('[data-ndel]').forEach(el => el.addEventListener('click', e=>{
+    e.stopPropagation();
+    confirmAction('删除便签','确认删除此便签？',()=>{
+      state.notes = state.notes.filter(x=>x.id!==el.dataset.ndel);
+      saveData(); renderPage(); toast('已删除');
+    });
+  }));
+}
+
+function openNoteModal(existing){
+  const isEdit = !!existing;
+  const data = existing || {color:NOTE_COLORS[0], html:''};
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon('notes',18)} ${isEdit?'编辑便签':'新建便利贴'}</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>背景颜色</label>
+        <div class="color-picker" id="colorPicker">
+          ${NOTE_COLORS.map(c=>`<div class="color-dot ${data.color===c?'on':''}" style="background:${c}" data-color="${c}"></div>`).join('')}
+        </div>
+      </div>
+      <div class="form-row">
+        <label>编辑区</label>
+        <div class="editor-bar">
+          <button data-cmd="bold" title="加粗 B"><b>B</b></button>
+          <button data-cmd="underline" title="下划线 U"><u>U</u></button>
+          <button data-cmd="italic" title="斜体 I"><i>I</i></button>
+          <button data-cmd="number" title="编号列表">1.</button>
+          <button data-cmd="todo" title="待办事项">☑</button>
+          <button data-cmd="clear" title="清除格式" style="font-size:12px">清除</button>
+        </div>
+        <div class="editor-area" id="editor" contenteditable="true" style="background:${esc(data.color)}">${data.html||''}</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-x>取消</button>
+      <button class="btn btn-primary" id="sSave">${svgIcon('check',16)} 保存</button>
+    </div>
+  `);
+  let chosenColor = data.color;
+  $$('[data-color]', modalContent).forEach(el => el.addEventListener('click', ()=>{
+    $$('[data-color]', modalContent).forEach(x=>x.classList.remove('on'));
+    el.classList.add('on');
+    chosenColor = el.dataset.color;
+    $('#editor').style.background = chosenColor;
+  }));
+  const editor = $('#editor');
+  editor.addEventListener('click', e=>{
+    if(e.target.classList.contains('todo-line') || e.target.classList.contains('done')){
+      e.target.classList.toggle('done');
+      e.preventDefault();
+    }
+  });
+  $$('[data-cmd]').forEach(btn => btn.addEventListener('click', e=>{
+    e.preventDefault();
+    const cmd = btn.dataset.cmd;
+    if(cmd==='clear'){
+      document.execCommand('removeFormat');
+      // unwrap formatting
+      editor.innerHTML = editor.innerText.replace(/\n/g,'<br>');
+    } else if(cmd==='todo'){
+      document.execCommand('insertHTML', false, '<div class="todo-line">待办事项</div>');
+    } else if(cmd==='number'){
+      document.execCommand('insertHTML', false, '<div>1. </div>');
+    } else {
+      document.execCommand(cmd);
+    }
+    editor.focus();
+  }));
+  $('#sSave').addEventListener('click', ()=>{
+    const html = editor.innerHTML.trim();
+    if(!html){ toast('内容不能为空','err'); return; }
+    if(isEdit){
+      const i = state.notes.findIndex(n=>n.id===existing.id);
+      if(i>=0){ state.notes[i].html = html; state.notes[i].color = chosenColor; }
+    } else {
+      state.notes.unshift({id:uid(), html, color:chosenColor, createdAt:Date.now()});
+    }
+    saveData(); closeModal(); renderPage(); toast(isEdit?'已保存':'已新建便签');
+  });
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+/* ============= Mao ============= */
+function renderMao(){
+  const toolsSum = state.maoTools.reduce((s,t)=>s+Number(t.price||0),0);
+  const stockSum = state.maoStock.reduce((s,t)=>s+Number(t.total!=null?t.total:(Number(t.price||0)*Number(t.qty||0))),0);
+  const incomeSum = state.maoIncome.reduce((s,t)=>s+Number(t.price||0),0);
+  const clientSum = state.maoClients.reduce((s,t)=>s+Number(t.price||0),0);
+  return `
+    <div class="page-head">
+      <h1>${svgIcon('mao',24)} 毛娘</h1>
+    </div>
+
+    ${maoSection('tools','工具', svgIcon('settings',16), state.maoTools, toolsSum, (id)=>openMaoModal('tools',id), 'tool')}
+    ${maoSection('stock','库存', svgIcon('list',16), state.maoStock, stockSum, (id)=>openMaoModal('stock',id), 'stock')}
+    ${maoSection('income','收入', svgIcon('wallet',16), state.maoIncome, incomeSum, (id)=>openMaoModal('income',id), 'income')}
+    ${maoSection('clients','单主', svgIcon('mao',16), state.maoClients, clientSum, (id)=>openMaoModal('clients',id), 'client')}
+  `;
+}
+
+function maoSection(key, label, icon, items, sum, onEdit, itemType){
+  return `
+    <section class="mao-section">
+      <h3>${icon} ${label} <span class="summary">合计 <span style="color:var(--c-pink);font-weight:600">¥${fmt(sum).replace('¥','')}</span></span></h3>
+      <div class="ctrl">
+        <button class="ib add-btn" data-add="${key}" title="添加">${svgIcon('plus',14)} 添加</button>
+      </div>
+      ${items.length===0 ? `
+        <div class="body-empty" style="margin-top:14px">
+          <div class="be-icon">${icon}</div>
+          <p>暂无${label}，点击右上方「添加」录入</p>
+        </div>
+      ` : `
+      <div class="mao-grid">
+        ${items.map(it=>maoCard(it, itemType, key)).join('')}
+      </div>
+      `}
+    </section>
+  `;
+}
+
+function maoCard(it, type, key){
+  let body = '';
+  let qtHtml = '';
+  let ckHtml = '';
+  if(type==='tool'){
+    body = `<div class="nm">${esc(it.name)}</div><div class="meta">${esc(it.note||'')}</div><div class="pr">${fmt(it.price)}</div>`;
+  } else if(type==='stock'){
+    body = `<div class="nm">${esc(it.name)}</div><div class="meta">店铺：${esc(it.shop||'-')}</div><div class="pr">${fmt(it.price)}</div>`;
+    qtHtml = `<div class="qt"><span class="pill">×${it.qty||0}</span><div class="ctrls"><button data-sdec="${key}_${it.id}" ${(it.qty||0)<=0?'disabled':''} title="减少库存">−</button></div></div>`;
+    ckHtml = `<div class="ck" data-ssold="${key}_${it.id}" title="标记卖出">${svgIcon('check',12)}</div>`;
+  } else if(type==='income'){
+    body = `<div class="nm">${esc(it.name)}</div><div class="meta">${esc(it.note||'')}</div><div class="pr">${fmt(it.price)}</div>`;
+  } else if(type==='client'){
+    body = `<div class="nm">${esc(it.name)}</div><div class="meta">${esc(it.platform||'')} · ${esc(it.require||'')}</div><div class="pr">${fmt(it.price)}</div>`;
+    ckHtml = `<div class="ck ${it.done?'on':''}" data-cdone="${key}_${it.id}" title="完成标记">${svgIcon('check',12)}</div>`;
+  }
+  let picInner = '';
+  if(it.image){
+    picInner = `<img src="${esc(it.image)}">`;
+  } else {
+    const icMap = {tool:'settings', stock:'list', income:'wallet', client:'mao'};
+    picInner = `<div class="pic-icon">${svgIcon(icMap[type]||'mao',28)}</div>`;
+  }
+  return `
+    <div class="mao-card ${it.done?'done':''}" data-edit="${key}_${it.id}">
+      <div class="pic">${picInner}${ckHtml}</div>
+      ${body}
+      ${qtHtml}
+    </div>
+  `;
+}
+
+/* 毛娘模块：短键名 → state 数据键 映射 */
+const MAO_KEY = {tools:'maoTools', stock:'maoStock', income:'maoIncome', clients:'maoClients'};
+/* 解析 "key_id"（id 本身含下划线，不能用 split） */
+function parseKV(str){
+  const i = str.indexOf('_');
+  return i<0 ? [str,''] : [str.slice(0,i), str.slice(i+1)];
+}
+
+function bindMao(){
+  $$('[data-add]').forEach(el => el.addEventListener('click', ()=>{
+    openMaoModal(el.dataset.add);
+  }));
+  $$('[data-edit]').forEach(el => el.addEventListener('click', e=>{
+    if(e.target.closest('[data-ssold],[data-sdec],[data-cdone]')) return;
+    const [k, id] = parseKV(el.dataset.edit);
+    openMaoModal(k, id);
+  }));
+  $$('[data-ssold]').forEach(el => el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const [k, id] = parseKV(el.dataset.ssold);
+    const arr = state[MAO_KEY[k]||k];
+    const it = arr && arr.find(x=>x.id===id);
+    if(!it) return;
+    if((it.qty||0) <= 0){ toast('库存为 0，无法标记卖出','err'); return; }
+    it.qty = (it.qty||0) - 1;
+    saveData(); renderPage(); toast('已扣减 1 件，库存合计金额不变');
+  }));
+  $$('[data-sdec]').forEach(el => el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const [k, id] = parseKV(el.dataset.sdec);
+    const arr = state[MAO_KEY[k]||k];
+    const it = arr && arr.find(x=>x.id===id);
+    if(!it) return;
+    if((it.qty||0) <= 0){ toast('库存已为 0','err'); return; }
+    it.qty = (it.qty||0) - 1;
+    saveData(); renderPage(); toast('已扣减 1 件，库存合计金额不变');
+  }));
+  $$('[data-cdone]').forEach(el => el.addEventListener('click', e=>{
+    e.stopPropagation();
+    const [k, id] = parseKV(el.dataset.cdone);
+    const arr = state[MAO_KEY[k]||k];
+    const it = arr && arr.find(x=>x.id===id);
+    if(it){ it.done = !it.done; saveData(); renderPage(); }
+  }));
+}
+
+function openMaoModal(key, existingId){
+  const isEdit = !!existingId;
+  const sk = MAO_KEY[key]||key; /* state 实际数据键 */
+  const data = isEdit ? {...state[sk].find(x=>x.id===existingId)} : {};
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon('mao',18)} ${isEdit?'编辑':'新增'}</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>图片 <span class="optional">（选填）</span></label>
+        <div class="upload-area" id="upWrap">
+          <img id="prevImg" src="${esc(data.image)}" style="${data.image?'':'display:none'}">
+          <div class="ic" id="upIcon" style="${data.image?'display:none':''}">${svgIcon('upload',36)}</div>
+          <div class="ph-txt" id="phTxt" style="${data.image?'display:none':''}">点击上传</div>
+          <input type="file" accept="image/*" id="upFile">
+        </div>
+      </div>
+      <div class="form-row"><label>名称 <span class="must">*</span></label><input id="fName" value="${esc(data.name||'')}" placeholder="输入名称"></div>
+      ${key==='stock' ? `<div class="form-row"><label>店铺</label><input id="fShop" value="${esc(data.shop||'')}" placeholder="如 微店·xxx"></div>` : ''}
+      ${key==='clients' ? `
+        <div class="form-row"><label>接单平台</label><input id="fPlatform" value="${esc(data.platform||'')}" placeholder="如 小红书"></div>
+        <div class="form-row"><label>需求要求</label><textarea id="fRequire" placeholder="例如：4分娃·浅金色长卷">${esc(data.require||'')}</textarea></div>
+      ` : ''}
+      ${key==='stock' ? `<div class="form-row"><label>数量</label><input type="number" id="fQty" value="${esc(data.qty||0)}" placeholder="0"></div>` : ''}
+      <div class="form-row"><label>价格 <span class="optional">（元）</span></label><input type="number" id="fPrice" value="${esc(data.price||0)}" placeholder="0.0"></div>
+      ${key!=='clients' ? `<div class="form-row"><label>备注</label><textarea id="fNote">${esc(data.note||'')}</textarea></div>` : ''}
+    </div>
+    <div class="modal-foot">
+      ${isEdit?'<button class="btn btn-outline" id="delItem" style="margin-right:auto">删除</button>':''}
+      <button class="btn btn-ghost" data-x>取消</button>
+      <button class="btn btn-primary" id="sSave">${svgIcon('check',16)} 保存</button>
+    </div>
+  `);
+  let newImg = data.image||'';
+  $('#upFile').addEventListener('change', async e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    newImg = await fileToBase64(f);
+    if(newImg){
+      $('#prevImg').src = newImg; $('#prevImg').style.display='block';
+      $('#upIcon').style.display='none'; $('#phTxt').style.display='none';
+      $('#upWrap').classList.add('has');
+    } else {
+      toast('图片读取失败，请换一张试试','err');
+    }
+  });
+  $('#sSave').addEventListener('click', ()=>{
+    const name = $('#fName').value.trim();
+    if(!name){ toast('请填写名称','err'); return; }
+    const payload = {
+      id: existingId || uid(),
+      name,
+      image: newImg
+    };
+    if(key==='stock'){
+      payload.shop = $('#fShop').value.trim();
+      payload.price = parseFloat($('#fPrice').value)||0;
+      payload.qty = parseInt($('#fQty').value)||0;
+      /* 库存合计金额固定为录入时的购入总价，数量增减不改变 total */
+      payload.total = (isEdit && data.total!=null) ? Number(data.total) : Number((payload.price||0)*(payload.qty||0));
+      payload.note = $('#fNote').value.trim();
+    } else if(key==='clients'){
+      payload.platform = $('#fPlatform').value.trim();
+      payload.require = $('#fRequire').value.trim();
+      payload.price = parseFloat($('#fPrice').value)||0;
+      payload.done = data.done || false;
+    } else if(key==='income'){
+      payload.price = parseFloat($('#fPrice').value)||0;
+      payload.note = $('#fNote').value.trim();
+    } else if(key==='tools'){
+      payload.price = parseFloat($('#fPrice').value)||0;
+      payload.note = $('#fNote').value.trim();
+      payload.sold = data.sold || false;
+    }
+    if(isEdit){
+      const i = state[sk].findIndex(x=>x.id===existingId);
+      if(i>=0) state[sk][i] = payload;
+    } else {
+      state[sk].unshift(payload);
+    }
+    saveData(); closeModal(); renderPage(); toast(isEdit?'已保存':'已添加');
+  });
+  if(isEdit){
+    $('#delItem').addEventListener('click', ()=>{
+      confirmAction('删除条目','确认删除？',()=>{
+        state[sk] = state[sk].filter(x=>x.id!==existingId);
+        saveData(); closeModal(); renderPage(); toast('已删除');
+      });
+    });
+  }
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+}
+
+/* ============= Settings ============= */
+function renderSettings(){
+  return `
+    <div class="page-head">
+      <h1>${svgIcon('settings',24)} 设置</h1>
+    </div>
+
+    <div class="profile-bar" id="profileBar">
+      <div class="avatar" id="profileAvatar">
+        ${state.profile.avatar?`<img src="${esc(state.profile.avatar)}">`:`<span style="font-size:32px">🐰</span>`}
+        <div class="avatar-edit">${svgIcon('edit',11)}</div>
+      </div>
+      <div class="info">
+        <div class="nm" id="profileName">${esc(state.profile.title)}</div>
+        <div class="desc">BJD 娃娃 + 毛娘业务管理台</div>
+      </div>
+      <button class="btn btn-ghost" id="editProfileBtn" style="padding:8px 14px;min-height:36px;font-size:13px">${svgIcon('edit',12)} 编辑</button>
+    </div>
+
+    <div class="setting-section">
+      <h3>💾 本地保存（自动）</h3>
+      <div style="font-size:13px;margin-bottom:10px" id="localSaveLine"></div>
+      <div style="font-size:12px;color:var(--c-text-3);line-height:1.8">
+        每次修改都会<b>立即自动保存</b>到本机，无需手动保存；下次打开自动读取历史数据。<br>
+        数据采用 localStorage + IndexedDB <b>双层本地存储</b>：即使浏览器清理了其中一层，打开时会自动从另一层恢复。<br>
+        退到后台或关闭页面前也会自动再保存一次，确保不丢失。
+      </div>
+    </div>
+
+    <div class="setting-section" id="cloudSyncSection">
+      <h3>☁️ 云端同步（Supabase）</h3>
+      <div style="font-size:13px;margin-bottom:12px" id="syncStatusLine"></div>
+      <div class="sync-form-row">
+        <label>项目地址（Project URL）</label>
+        <input id="syncUrl" placeholder="https://xxxxx.supabase.co" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="sync-form-row">
+        <label>anon 公钥（API Key）</label>
+        <input id="syncKey" placeholder="eyJhbGciOi...（Supabase 项目设置 → API）" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="sync-form-row">
+        <label>同步码（多台设备填同一个即可互相同步）</label>
+        <input id="syncRoom" placeholder="如：sujiu-cabinet-001" autocomplete="off" spellcheck="false">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-primary" id="syncConnectBtn" style="padding:8px 16px;min-height:38px;font-size:13px">连接云端</button>
+        <button class="btn btn-outline" id="syncDisconnectBtn" style="padding:8px 16px;min-height:38px;font-size:13px">断开</button>
+        <button class="btn btn-outline" id="syncUpBtn" style="padding:8px 16px;min-height:38px;font-size:13px">以本机为准上传</button>
+        <button class="btn btn-outline" id="syncDownBtn" style="padding:8px 16px;min-height:38px;font-size:13px">从云端拉取覆盖本机</button>
+      </div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-top:12px;line-height:1.7">
+        首次使用：在 supabase.com 免费建项目 → SQL Editor 执行建表语句（见下方帮助）→ 把 URL / anon key 填到上面。<br>
+        连接后：<b style="color:#3A6E58">☁ 已连接</b>（绿）= 数据自动双向同步；<b style="color:#5F7C95">☁ 未连接</b>（灰）= 数据仅保存在本机。
+      </div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;padding:10px;background:rgba(175,219,230,.18);border-radius:10px;line-height:1.6;font-family:monospace;word-break:break-all">
+        create table if not exists cabinet_data (<br>&nbsp;&nbsp;room text primary key,<br>&nbsp;&nbsp;data jsonb not null,<br>&nbsp;&nbsp;updated_at timestamptz not null default now()<br>);<br>alter table cabinet_data enable row level security;<br>create policy "sync_all" on cabinet_data for all using (true) with check (true);
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <h3>${svgIcon('list',18)} 数据管理</h3>
+      <div class="setting-row">
+        <div>
+          <div class="label">导出全部数据备份</div>
+          <div class="desc">将所有数据导出为 JSON 文件保存</div>
+        </div>
+        <button class="btn btn-outline" id="exportBtn" style="padding:8px 14px;min-height:36px;font-size:13px">${svgIcon('upload',14)} 导出</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label">导入备份文件</div>
+          <div class="desc">从之前导出的 JSON 恢复数据</div>
+        </div>
+        <button class="btn btn-outline" id="importBtn" style="padding:8px 14px;min-height:36px;font-size:13px">${svgIcon('upload',14)} 导入</button>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label" style="color:var(--c-red)">清空所有数据</div>
+          <div class="desc">不可恢复，请先导出备份</div>
+        </div>
+        <button class="btn btn-outline" id="clearBtn" style="padding:8px 14px;min-height:36px;font-size:13px;color:var(--c-red);border-color:rgba(232,90,111,.3)">${svgIcon('trash',14)} 清空</button>
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <h3>${svgIcon('bell',18)} 关于</h3>
+      <div style="font-size:13px;color:var(--c-text-2);line-height:1.8">
+        <div>📦 数据存储：本机双层（localStorage + IndexedDB），自动保存、自动恢复${storageOK()?'':'（⚠️ 当前环境存储受限，建议连接云端同步）'}
+        </div>
+        <div>🎨 配色：粉青 · 粉黛 · 灰月 · 沙青 · 烟凝</div>
+        <div>🔒 隐私：默认仅存本机；连接云端同步后保存在您自己的 Supabase 账号</div>
+        <div style="margin-top:8px;color:var(--c-text-3)">v1.0 · 由 WorkBuddy 小台搭建</div>
+      </div>
+    </div>
+  `;
+}
+function bindSettings(){
+  /* 云端同步 */
+  const scfg = getSyncCfg();
+  if(scfg){
+    $('#syncUrl').value = scfg.url||'';
+    $('#syncKey').value = scfg.key||'';
+    $('#syncRoom').value = scfg.room||'';
+  }
+  updateSyncBadge();
+  updateLocalSaveLine();
+  $('#syncConnectBtn').addEventListener('click', async ()=>{
+    const cfg = { url:$('#syncUrl').value.trim(), key:$('#syncKey').value.trim(), room:$('#syncRoom').value.trim() };
+    await syncConnect(cfg);
+  });
+  $('#syncDisconnectBtn').addEventListener('click', ()=> syncDisconnect());
+  $('#syncUpBtn').addEventListener('click', async ()=>{
+    const cfg = getSyncCfg();
+    if(!cfg){ toast('请先连接云端','err'); return; }
+    syncState.busy = true; updateSyncBadge();
+    try{
+      await sbPush();
+      lsSet('wb_saved_at', String(Date.now()));
+      toast('已把本机数据上传到云端');
+      renderPage();
+    }catch(e){
+      syncState.lastError = String(e.message||e);
+      toast('上传失败：'+syncState.lastError,'err');
+      updateSyncBadge();
+    }
+    syncState.busy = false; updateSyncBadge();
+  });
+  $('#syncDownBtn').addEventListener('click', ()=>{
+    const cfg = getSyncCfg();
+    if(!cfg){ toast('请先连接云端','err'); return; }
+    confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未同步的改动会丢失），确认继续？', async ()=>{
+      try{
+        const row = await sbPullWith(cfg);
+        if(!row){ toast('云端还没有数据','err'); return; }
+        lsSet(STORE_KEY, JSON.stringify(row.data));
+        lsSet('wb_saved_at', String(new Date(row.updated_at).getTime()));
+        location.reload();
+      }catch(e){ toast('拉取失败：'+String(e.message||e),'err'); }
+    });
+  });
+
+  $('#profileAvatar').addEventListener('click', ()=>{
+    openAvatarModal(()=>{
+      const av = $('#profileAvatar');
+      if(state.profile.avatar){
+        av.innerHTML = `<img src="${esc(state.profile.avatar)}"><div class="avatar-edit">${svgIcon('edit',11)}</div>`;
+      } else {
+        av.innerHTML = `<span style="font-size:32px">🐰</span><div class="avatar-edit">${svgIcon('edit',11)}</div>`;
+      }
+      updateBrand();
+      renderPage();
+    });
+  });
+  $('#editProfileBtn').addEventListener('click', ()=>{
+    const newName = prompt('修改工作台名称', state.profile.title);
+    if(newName && newName.trim()){
+      state.profile.title = newName.trim();
+      saveData(); renderPage();
+      toast('已更新');
+    }
+  });
+  $('#exportBtn').addEventListener('click', exportData);
+  $('#importBtn').addEventListener('click', ()=> $('#importFile').click());
+  $('#importFile').addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try{
+        const data = JSON.parse(ev.target.result);
+        confirmAction('确认导入','导入将覆盖当前所有数据，确认继续？',()=>{
+          state = data;
+          saveData(); renderPage(); toast('已导入数据');
+        });
+      }catch(err){
+        toast('文件格式错误','err');
+      }
+    };
+    r.readAsText(f);
+    e.target.value='';
+  });
+  $('#clearBtn').addEventListener('click', ()=>{
+    confirmAction('清空所有数据','此操作将删除<strong style="color:var(--c-red)">所有</strong>衣服、体子、便签、毛娘条目，且不可恢复！建议先导出备份。<br><br>确认清空吗？',()=>{
+      try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+      state = loadData();
+      renderPage();
+      toast('已清空数据');
+    });
+  });
+}
+
+function exportData(){
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `娃柜备份_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('已导出备份');
+}
+
+/* ================= Bootstrap ================= */
+updateBrand();
+renderPage();
+</script>
+</body>
+</html>
+</body>
+</html>
