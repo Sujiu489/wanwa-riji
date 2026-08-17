@@ -1150,7 +1150,8 @@ const defaultData = {
     {id:'cl1', name:'小圆同学', platform:'小红书', price:120, require:'4分娃·浅金色长卷', image:'', done:false},
     {id:'cl2', name:'阿茶', platform:'微博', price:80, require:'6分西瓜头造型', image:'', done:true}
   ],
-  maoCollapsed: {} /* 毛娘四个分类的展开/收起状态，true 为收起 */
+  maoCollapsed: {}, /* 毛娘四个分类的展开/收起状态，true 为收起 */
+  maoStockCleared: 0 /* 库存清零移除的累计金额，仍计入库存合计 */
 };
 
 /* ==== 存储安全层：沙箱 iframe / 隐私模式等场景下 localStorage 可能不可用 ==== */
@@ -3445,7 +3446,7 @@ function openNoteModal(existing){
 /* ============= Mao ============= */
 function renderMao(){
   const toolsSum = state.maoTools.reduce((s,t)=>s+Number(t.price||0),0);
-  const stockSum = state.maoStock.reduce((s,t)=>s+Number(t.total!=null?t.total:(Number(t.price||0)*Number(t.qty||0))),0);
+  const stockSum = state.maoStock.reduce((s,t)=>s+Number(t.total!=null?t.total:(Number(t.price||0)*Number(t.qty||0))),0) + Number(state.maoStockCleared||0);
   const incomeSum = state.maoIncome.reduce((s,t)=>s+Number(t.price||0),0);
   const clientSum = state.maoClients.reduce((s,t)=>s+Number(t.price||0),0);
   return `
@@ -3552,8 +3553,17 @@ function bindMao(){
     const it = arr && arr.find(x=>x.id===id);
     if(!it) return;
     if((it.qty||0) <= 0){ toast('库存为 0，无法标记卖出','err'); return; }
+    /* 清零前先记录该项金额，移除后仍计入库存合计 */
+    const itemVal = it.total!=null ? Number(it.total||0) : Number(it.price||0)*Number(it.qty||0);
     it.qty = (it.qty||0) - 1;
-    saveData(); renderPage(); toast('已扣减 1 件，库存合计金额不变');
+    if((it.qty||0) <= 0){
+      const idx = arr.indexOf(it);
+      if(idx >= 0) arr.splice(idx, 1);
+      state.maoStockCleared = Number(state.maoStockCleared||0) + itemVal;
+      saveData(); renderPage(); toast('库存已清零，卡片已移除（金额保留在合计中）');
+    } else {
+      saveData(); renderPage(); toast('已扣减 1 件，库存合计金额不变');
+    }
   }));
   $$('[data-sdec]').forEach(el => el.addEventListener('click', e=>{
     e.stopPropagation();
@@ -3562,8 +3572,17 @@ function bindMao(){
     const it = arr && arr.find(x=>x.id===id);
     if(!it) return;
     if((it.qty||0) <= 0){ toast('库存已为 0','err'); return; }
+    /* 清零前先记录该项金额，移除后仍计入库存合计 */
+    const itemVal = it.total!=null ? Number(it.total||0) : Number(it.price||0)*Number(it.qty||0);
     it.qty = (it.qty||0) - 1;
-    saveData(); renderPage(); toast('已扣减 1 件，库存合计金额不变');
+    if((it.qty||0) <= 0){
+      const idx = arr.indexOf(it);
+      if(idx >= 0) arr.splice(idx, 1);
+      state.maoStockCleared = Number(state.maoStockCleared||0) + itemVal;
+      saveData(); renderPage(); toast('库存已清零，卡片已移除（金额保留在合计中）');
+    } else {
+      saveData(); renderPage(); toast('已扣减 1 件，库存合计金额不变');
+    }
   }));
   $$('[data-cdone]').forEach(el => el.addEventListener('click', e=>{
     e.stopPropagation();
@@ -3651,9 +3670,20 @@ function openMaoModal(key, existingId){
       payload.sold = data.sold || false;
     }
     if(isEdit){
+      if(key==='stock' && (payload.qty||0) <= 0){
+        /* 编辑后数量为 0：卡片移除，原金额保留在库存合计中 */
+        const old = state[sk].find(x=>x.id===existingId);
+        state.maoStockCleared = Number(state.maoStockCleared||0) + Number((old && old.total!=null) ? old.total : (payload.total||0));
+        state[sk] = state[sk].filter(x=>x.id!==existingId);
+        saveData(); closeModal(); renderPage(); toast('库存已清零，卡片已移除（金额保留在合计中）');
+        return;
+      }
       const i = state[sk].findIndex(x=>x.id===existingId);
       if(i>=0) state[sk][i] = payload;
     } else {
+      if(key==='stock' && (payload.qty||0) <= 0){
+        toast('数量为 0，未添加','err'); return;
+      }
       state[sk].unshift(payload);
     }
     saveData(); closeModal(); renderPage(); toast(isEdit?'已保存':'已添加');
