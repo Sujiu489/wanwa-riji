@@ -679,8 +679,14 @@ img{display:block;max-width:100%}
   background:rgba(175,219,230,.35);display:flex;align-items:center;justify-content:center;color:var(--c-blue);
 }
 .mao-section{background:#fff;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow-card)}
+.mao-head{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.mao-head h3{flex:1}
+.mao-head .fold-ic{display:inline-flex;align-items:center;justify-content:center;color:var(--c-text-3);transition:transform var(--tr-soft)}
+.mao-section.collapsed .fold-ic{transform:rotate(-90deg)}
+.mao-section.collapsed .mao-body{display:none}
 .mao-section h3{font-size:16px;font-weight:600;color:var(--c-dark);display:flex;align-items:center;gap:8px}
 .mao-section .summary{font-size:12px;background:rgba(175,219,230,.35);padding:3px 12px;border-radius:20px;color:var(--c-text-2);font-weight:500}
+.mao-section .cnt-pill{font-size:11px;background:rgba(232,90,111,.12);padding:2px 8px;border-radius:20px;color:var(--c-red);font-weight:500}
 .mao-section .ctrl{margin-left:auto;display:flex;gap:8px}
 .mao-section .ctrl .ib{
   width:36px;height:36px;border-radius:12px;background:#fff;color:var(--c-dark);
@@ -1143,7 +1149,8 @@ const defaultData = {
   maoClients: [
     {id:'cl1', name:'小圆同学', platform:'小红书', price:120, require:'4分娃·浅金色长卷', image:'', done:false},
     {id:'cl2', name:'阿茶', platform:'微博', price:80, require:'6分西瓜头造型', image:'', done:true}
-  ]
+  ],
+  maoCollapsed: {} /* 毛娘四个分类的展开/收起状态，true 为收起 */
 };
 
 /* ==== 存储安全层：沙箱 iframe / 隐私模式等场景下 localStorage 可能不可用 ==== */
@@ -3454,12 +3461,17 @@ function renderMao(){
 }
 
 function maoSection(key, label, icon, items, sum, onEdit, itemType){
+  const collapsed = !!(state.maoCollapsed && state.maoCollapsed[key]);
   return `
-    <section class="mao-section">
-      <h3>${icon} ${label} <span class="summary">合计 <span style="color:var(--c-pink);font-weight:600">¥${fmt(sum).replace('¥','')}</span></span></h3>
-      <div class="ctrl">
-        <button class="ib add-btn" data-add="${key}" title="添加">${svgIcon('plus',14)} 添加</button>
+    <section class="mao-section ${collapsed?'collapsed':''}">
+      <div class="mao-head" data-toggle="${key}" title="${collapsed?'展开':'收起'}">
+        <h3>${icon} ${label} <span class="cnt-pill">${items.length}</span> <span class="summary">合计 <span style="color:var(--c-pink);font-weight:600">¥${fmt(sum).replace('¥','')}</span></span></h3>
+        <div class="ctrl">
+          <button class="ib add-btn" data-add="${key}" title="添加">${svgIcon('plus',14)} 添加</button>
+          <button class="ib" title="${collapsed?'展开':'收起'}" style="cursor:pointer"><span class="fold-ic">${svgIcon('expand',16)}</span></button>
+        </div>
       </div>
+      <div class="mao-body">
       ${items.length===0 ? `
         <div class="body-empty" style="margin-top:14px">
           <div class="be-icon">${icon}</div>
@@ -3470,6 +3482,7 @@ function maoSection(key, label, icon, items, sum, onEdit, itemType){
         ${items.map(it=>maoCard(it, itemType, key)).join('')}
       </div>
       `}
+      </div>
     </section>
   `;
 }
@@ -3515,6 +3528,15 @@ function parseKV(str){
 }
 
 function bindMao(){
+  /* 点击标题栏（或箭头）切换 展开/收起 */
+  $$('.mao-head').forEach(el => el.addEventListener('click', e=>{
+    if(e.target.closest('[data-add]')) return; /* 「添加」按钮不触发折叠 */
+    const key = el.dataset.toggle;
+    if(!key) return;
+    if(!state.maoCollapsed) state.maoCollapsed = {};
+    state.maoCollapsed[key] = !state.maoCollapsed[key];
+    saveData(); renderPage();
+  }));
   $$('[data-add]').forEach(el => el.addEventListener('click', ()=>{
     openMaoModal(el.dataset.add);
   }));
