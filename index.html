@@ -990,6 +990,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--c-blue);outline-off
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="saveBadge" style="position:fixed;bottom:80px;right:16px;z-index:9999;background:rgba(58,110,88,0.95);color:#fff;font-size:12px;padding:6px 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,0.15);opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;display:flex;align-items:center;gap:4px">💾 已保存</div>
 
 <script>
 /* ================= Data Layer ================= */
@@ -1448,25 +1449,44 @@ function loadData(){
     return data;
   }catch(e){ return JSON.parse(JSON.stringify(defaultData)); }
 }
+/* 自动保存：本机立即双层落盘（localStorage + IndexedDB）+ 记录保存时间 + 防抖推送到云端 */
+let __saveBadgeTimer = null;
+function showSaveBadge(ok){
+  const badge = document.getElementById('saveBadge');
+  if(!badge) return;
+  badge.textContent = ok ? '💾 已保存' : '⚠ 保存失败';
+  badge.style.background = ok ? 'rgba(58,110,88,0.95)' : 'rgba(232,90,111,0.95)';
+  badge.style.opacity = '1';
+  badge.style.transform = 'translateY(0)';
+  clearTimeout(__saveBadgeTimer);
+  __saveBadgeTimer = setTimeout(()=>{
+    badge.style.opacity = '0';
+    badge.style.transform = 'translateY(10px)';
+  }, 1200);
+}
 function saveData(){
-  /* 自动保存：本机立即双层落盘（localStorage + IndexedDB）+ 记录保存时间 + 防抖推送到云端 */
+  state._savedAt = Date.now(); /* 在数据内部嵌入时间戳，用于跨存储层对比新旧 */
   const json = JSON.stringify(state);
   const ok = lsSetVerified(json);
-  if(ok) lsSet('wb_saved_at', String(Date.now()));
-  backupToLocal(); /* 异步写 IndexedDB 备份层 */
+  if(ok) lsSet('wb_saved_at', String(state._savedAt));
+  __lastSavePromise = backupToLocal(); /* 保存 Promise 引用，供 flushLocal 等待 */
   scheduleSyncPush();
   updateLocalSaveLine();
+  showSaveBadge(ok); /* 显示保存状态指示器 */
 }
 /* 强制保存（async）：手动保存按钮使用，确保 IndexedDB 写入完成后才返回，并验证两层存储 */
 async function forceSave(){
+  state._savedAt = Date.now();
   const json = JSON.stringify(state);
   const lsOk = lsSetVerified(json);
-  if(lsOk) lsSet('wb_saved_at', String(Date.now()));
+  if(lsOk) lsSet('wb_saved_at', String(state._savedAt));
   const idbOk = await backupToLocal();
+  __lastSavePromise = Promise.resolve();
   scheduleSyncPush();
   updateLocalSaveLine();
   return { lsOk, idbOk };
 }
+let __lastSavePromise = Promise.resolve();
 let state = loadData();
 
 /* ============ 数据自愈：修复历史 ID 冲突 bug 产生的脏数据 ============
@@ -1630,28 +1650,55 @@ document.getElementById('privacyOk').addEventListener('click', ()=>{
 /* ================= 云端同步：启动自动恢复 + 退后台前强推 ================= */
 updateSyncBadge();
 syncAutoResume();
-/* ================= 本地历史数据恢复：localStorage 被清理时从 IndexedDB 备份还原 ================= */
+/* ================= 本地历史数据恢复：对比 localStorage 与 IndexedDB 时间戳，使用更新的版本 ================= */
 async function localRestore(){
   const raw = lsGet();
   const idbRaw = await idbGet(IDB_DATA);
-  if(!raw && idbRaw){
-    /* localStorage 已被系统清理 → 从 IndexedDB 备份恢复历史数据 */
-    try{
-      JSON.parse(idbRaw); /* 校验可解析 */
-      lsSet(STORE_KEY, idbRaw);
-      const at = await idbGet(IDB_AT);
-      if(at) lsSet('wb_saved_at', String(at));
-      state = loadData();
-      renderPage();
-      saveData();
-      toast('已自动恢复本机历史数据');
-    }catch(e){}
+  
+  /* 提取两个存储层的数据内部时间戳 */
+  let lsTime = 0, idbTime = 0;
+  try{ if(raw){ const d = JSON.parse(raw); lsTime = d._savedAt || 0; } }catch(e){}
+  try{ if(idbRaw){ const d = JSON.parse(idbRaw); idbTime = d._savedAt || 0; } }catch(e){}
+  
+  /* 也检查外部时间戳作为备用 */
+  const lsExtTime = Number(lsGet('wb_saved_at')||0);
+  const idbExtTime = (await idbGet(IDB_AT)) || 0;
+  lsTime = Math.max(lsTime, lsExtTime);
+  idbTime = Math.max(idbTime, idbExtTime);
+  
+  if(!raw && !idbRaw){
+    /* 两个存储层都空 → 全新用户，无需恢复 */
     return;
   }
+  
+  if(idbRaw && (!raw || idbTime > lsTime + 1000)){
+    /* IndexedDB 有更新数据 → 从 IndexedDB 恢复（即使 localStorage 非空也恢复）
+       +1000ms 容差：避免双写时微小时间差导致反复覆盖 */
+    try{
+      const idbData = JSON.parse(idbRaw);
+      JSON.parse(JSON.stringify(idbData)); /* 深拷贝校验 */
+      lsSet(STORE_KEY, idbRaw);
+      lsSet('wb_saved_at', String(idbTime));
+      state = loadData();
+      renderPage();
+      toast('已自动恢复最新数据（来自本机备份）');
+      saveData();
+    }catch(e){
+      console.warn('IndexedDB 恢复失败', e);
+    }
+    return;
+  }
+  
   if(raw && !idbRaw){
-    /* 首次升级：为已有数据补建 IndexedDB 备份 */
+    /* localStorage 有数据但 IndexedDB 空 → 补建备份 */
     backupToLocal();
   }
+  
+  if(raw && idbRaw && lsTime > idbTime + 1000){
+    /* localStorage 更新 → 同步到 IndexedDB */
+    backupToLocal();
+  }
+  
   /* 云端同步配置若也被清理，同样从备份恢复 */
   if(!getSyncCfg()){
     const cfgRaw = await idbGet(IDB_CFG);
@@ -1665,7 +1712,13 @@ localRestore();
 requestPersistentStorage();
 /* 退后台 / 关闭页面前：本地双层落盘（+ 已连接云端时强推） */
 function flushLocal(){
-  try{ lsSetVerified(JSON.stringify(state)); }catch(e){}
+  try{
+    state._savedAt = Date.now();
+    const json = JSON.stringify(state);
+    lsSetVerified(json);
+    lsSet('wb_saved_at', String(state._savedAt));
+  }catch(e){}
+  /* 确保 IndexedDB 写入也启动（异步，但页面关闭前尽量触发） */
   backupToLocal();
 }
 document.addEventListener('visibilitychange', ()=>{
