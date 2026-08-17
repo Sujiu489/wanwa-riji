@@ -904,6 +904,61 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--c-blue);outline-off
   border:1.5px solid transparent;font-size:15px;transition:all var(--tr-soft);
 }
 .text-input:focus{background:#fff;border-color:var(--c-blue);box-shadow:0 0 0 3px rgba(66,126,164,.1)}
+
+/* === 存储用量卡片 === */
+.storage-usage-card{
+  background:#fff;border-radius:18px;padding:16px 18px;margin-bottom:14px;
+  border:1px dashed var(--c-line);box-shadow:var(--shadow-card);
+}
+.storage-usage-card .su-title{
+  font-size:14px;font-weight:600;color:var(--c-dark);margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+.storage-usage-card .su-bar{
+  height:8px;background:#E8EFF3;border-radius:999px;overflow:hidden;margin-bottom:8px;
+}
+.storage-usage-card .su-fill{
+  height:100%;background:linear-gradient(90deg,var(--c-cyan),var(--c-blue));
+  border-radius:999px;transition:width .5s ease;
+}
+.storage-usage-card .su-fill.warn{background:linear-gradient(90deg,#F2C9A0,#E85A6F)}
+.storage-usage-card .su-info{
+  display:flex;justify-content:space-between;align-items:center;font-size:13px;
+}
+.storage-usage-card .su-label{color:var(--c-text-2)}
+.storage-usage-card .su-val{color:var(--c-blue);font-weight:600;font-feature-settings:"tnum"}
+.storage-usage-card .su-val.warn{color:var(--c-red)}
+.storage-usage-card .su-hint{font-size:11px;color:var(--c-text-3);margin-top:6px;line-height:1.5}
+
+/* === 云同步卡片 === */
+.cloud-sync-card{
+  background:linear-gradient(135deg,#E8F4FD,#F0F7FF);border-radius:18px;padding:16px 18px;margin-bottom:14px;
+  border:1px solid rgba(66,126,164,.15);box-shadow:var(--shadow-card);
+}
+.cloud-sync-card .cs-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.cloud-sync-card .cs-title{font-size:14px;font-weight:600;color:var(--c-dark)}
+.cloud-sync-card .cs-status{margin-left:auto;font-size:12px;text-align:right;line-height:1.5}
+.cloud-sync-card .cs-actions{display:flex;gap:8px}
+.cloud-sync-card .cs-btn{flex:1;padding:10px 12px;min-height:42px;font-size:13px}
+
+/* === 备份历史列表 === */
+.backup-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:320px;overflow-y:auto}
+.backup-item{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:#F4F9FB;border-radius:12px;border:1px dashed var(--c-line);
+  transition:all var(--tr-soft);
+}
+.backup-item:hover{border-color:var(--c-blue);background:#EAF3F7}
+.backup-item .bi-time{font-size:13px;color:var(--c-dark);flex:1;min-width:0}
+.backup-item .bi-time .bi-date{font-weight:500}
+.backup-item .bi-time .bi-sub{font-size:11px;color:var(--c-text-3);margin-top:2px}
+.backup-item .bi-actions{display:flex;gap:6px;flex-shrink:0}
+.backup-item .bi-btn{
+  padding:6px 10px;border-radius:8px;font-size:12px;background:#fff;
+  border:1px solid var(--c-line);color:var(--c-dark);transition:all var(--tr-soft);min-height:auto;
+}
+.backup-item .bi-btn:hover{background:var(--c-cyan);border-color:var(--c-blue);color:var(--c-blue)}
+.backup-item .bi-btn.dl:hover{background:#DDEAE5;border-color:#3A6E58;color:#3A6E58}
 </style>
 </head>
 <body>
@@ -967,8 +1022,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--c-blue);outline-off
         <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
       </div>
       <h3>隐私提醒</h3>
-      <p>默认所有数据存储在<strong>本机浏览器</strong>中，每次修改自动保存，关闭后重开不会丢失。</p>
-      <p>如需多设备同步，可在「设置 → 云端同步」连接<strong>您自己的 GitHub</strong> 仓库，数据只保存在您的账号里。建议定期「导出全部数据备份」留底。</p>
+      <p>默认所有数据存储在<strong>本机浏览器的 IndexedDB</strong> 中，每次修改自动保存，关闭后重开不会丢失。</p>
+      <p>如需多设备同步，可在「设置 → 云端同步」连接<strong>您自己的 GitHub</strong> 仓库，<b>点「上传到云端」按钮才上传</b>。建议定期「导出全部数据备份」留底。</p>
     </div>
     <div class="modal-foot" style="justify-content:center;border-top:none;padding-top:0">
       <button class="btn btn-primary" id="privacyOk">我知道了</button>
@@ -1108,16 +1163,25 @@ async function requestPersistentStorage(){
   return false;
 }
 
-/* ==== IndexedDB 本地备份层：与 localStorage 双写，即使系统清理其中一层也能恢复 ==== */
-const IDB_DATA = 'data', IDB_AT = 'saved_at', IDB_CFG = 'sync_cfg';
+/* ==== IndexedDB 主存储层：容量远超 localStorage（通常可用数百MB~GB级），避免静默写入失败 ==== */
+const IDB_DATA = 'data', IDB_AT = 'saved_at', IDB_CFG = 'sync_cfg', IDB_BACKUPS = 'backups';
 let __idb = null;
+let __idbReady = false;
 function idbOpen(){
   if(__idb) return Promise.resolve(__idb);
   return new Promise((resolve, reject)=>{
     try{
-      const rq = indexedDB.open('wb_sujiu_cabinet', 1);
-      rq.onupgradeneeded = e => { try{ e.target.result.createObjectStore('kv'); }catch(_){} };
-      rq.onsuccess = e => { __idb = e.target.result; resolve(__idb); };
+      const rq = indexedDB.open('wb_sujiu_cabinet', 2);
+      rq.onupgradeneeded = e => {
+        const db = e.target.result;
+        try{ if(!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); }catch(_){}
+        try{ if(!db.objectStoreNames.contains('backups')) db.createObjectStore('backups', {keyPath:'id'}); }catch(_){}
+        /* 如果从 v1 升级，手动添加 backups store */
+        if(e.oldVersion < 2){
+          try{ if(!db.objectStoreNames.contains('backups')) db.createObjectStore('backups', {keyPath:'id'}); }catch(_){}
+        }
+      };
+      rq.onsuccess = e => { __idb = e.target.result; __idbReady = true; resolve(__idb); };
       rq.onerror = () => reject(rq.error || new Error('IndexedDB 不可用'));
       rq.onblocked = () => reject(new Error('IndexedDB 被占用'));
     }catch(e){ reject(e); }
@@ -1153,18 +1217,150 @@ async function backupToLocal(){
   const r2 = await idbSet(IDB_AT, Date.now());
   return r1 && r2;
 }
+
+/* ==== 存储用量估算（navigator.storage.estimate API） ==== */
+async function getStorageEstimate(){
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const est = await navigator.storage.estimate();
+      return { usage: est.usage||0, quota: est.quota||0 };
+    }
+  }catch(e){}
+  return null;
+}
+function formatBytes(n){
+  if(!n || n<1) return '0 B';
+  if(n < 1024) return n.toFixed(0) + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  if(n < 1024*1024*1024) return (n/(1024*1024)).toFixed(2) + ' MB';
+  return (n/(1024*1024*1024)).toFixed(2) + ' GB';
+}
+
+/* ==== 备份快照管理：打开工作台时自动备份 + 定时备份，存储在 IndexedDB backups store ==== */
+async function createBackupSnapshot(reason){
+  try{
+    const db = await idbOpen();
+    const ts = Date.now();
+    const snapshot = {
+      id: 'bk_' + ts + '_' + Math.random().toString(36).slice(2,6),
+      timestamp: ts,
+      reason: reason || 'auto',
+      data: JSON.parse(JSON.stringify(state)),
+      dataSize: JSON.stringify(state).length
+    };
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction('backups','readwrite');
+      tx.objectStore('backups').put(snapshot);
+      tx.oncomplete = resolve;
+      tx.onerror = ()=>reject(tx.error);
+    });
+    /* 只保留最近 20 份自动备份，避免无限增长 */
+    await pruneOldBackups(20);
+    return snapshot;
+  }catch(e){ console.warn('创建备份快照失败', e); return null; }
+}
+async function getBackupList(){
+  try{
+    const db = await idbOpen();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction('backups','readonly');
+      const rq = tx.objectStore('backups').getAll();
+      rq.onsuccess = ()=>{ const list = (rq.result||[]).sort((a,b)=>b.timestamp-a.timestamp); resolve(list); };
+      rq.onerror = ()=>reject(rq.error);
+    });
+  }catch(e){ return []; }
+}
+async function pruneOldBackups(keep){
+  try{
+    const list = await getBackupList();
+    if(list.length <= keep) return;
+    const toDelete = list.slice(keep);
+    const db = await idbOpen();
+    for(const bk of toDelete){
+      await new Promise((resolve)=>{
+        const tx = db.transaction('backups','readwrite');
+        tx.objectStore('backups').delete(bk.id);
+        tx.oncomplete = resolve; tx.onerror = resolve;
+      });
+    }
+  }catch(e){}
+}
+async function restoreBackup(bkId){
+  try{
+    const db = await idbOpen();
+    const bk = await new Promise((resolve, reject)=>{
+      const tx = db.transaction('backups','readonly');
+      const rq = tx.objectStore('backups').get(bkId);
+      rq.onsuccess = ()=>resolve(rq.result); rq.onerror = ()=>reject(rq.error);
+    });
+    if(!bk || !bk.data) return false;
+    state = mergeData(bk.data);
+    saveData(); renderPage();
+    return true;
+  }catch(e){ return false; }
+}
+function downloadBackupFile(bk){
+  try{
+    const data = bk ? JSON.stringify(bk.data||bk, null, 2) : JSON.stringify(state, null, 2);
+    const blob = new Blob([data], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = bk ? bk.timestamp : Date.now();
+    const d = new Date(ts);
+    const pad = n=>String(n).padStart(2,'0');
+    const stamp = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    a.href = url;
+    a.download = `娃柜备份_${stamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }catch(e){}
+}
+
+/* ==== 从 IndexedDB 主存储加载数据（异步） ==== */
+async function idbLoadData(){
+  try{
+    const raw = await idbGet(IDB_DATA);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+/* 数据合并：确保新增字段有默认值，保留用户已录入的数据 */
+function mergeData(data){
+  if(!data || typeof data !== 'object') return JSON.parse(JSON.stringify(defaultData));
+  const merged = JSON.parse(JSON.stringify(defaultData));
+  for(const k in merged){
+    if(k === 'profile'){
+      merged.profile = Object.assign({}, merged.profile, data.profile||{});
+    }else if(Array.isArray(merged[k])){
+      merged[k] = Array.isArray(data[k]) ? data[k] : merged[k];
+    }else if(typeof merged[k] === 'object' && merged[k] !== null){
+      merged[k] = Object.assign({}, merged[k], data[k]||{});
+    }else{
+      if(data[k] !== undefined) merged[k] = data[k];
+    }
+  }
+  /* 兼容迁移：库存没有 total 字段时，按 price×qty 补初始化 */
+  if(Array.isArray(merged.maoStock)){
+    merged.maoStock.forEach(s => {
+      if(typeof s.total === 'undefined' || s.total === null){
+        s.total = Number(s.price||0) * Number(s.qty||0);
+      }
+    });
+  }
+  /* 兼容迁移：默认9分类底色按深浅蓝新顺序重排 */
+  if(Array.isArray(merged.categories)){
+    const order = ['cat_dress','cat_top','cat_coat','cat_pants','cat_shoes','cat_eyes','cat_wig','cat_acc','cat_gufeng'];
+    merged.categories.forEach(c=>{ const i = order.indexOf(c.id); if(i>=0) c.bg = i+1; });
+  }
+  return merged;
+}
 /* 设置页「本地保存」状态行 */
 function updateLocalSaveLine(){
   const el = document.getElementById('localSaveLine');
   if(!el) return;
-  const t = Number(lsGet('wb_saved_at')||0);
-  const lsWorking = storageOK();
+  const t = Number(state._savedAt||0);
   const timeStr = t ? new Date(t).toLocaleString() : '尚未保存';
-  let html = '<span style="color:#3A6E58">✓ 最近保存：' + timeStr + '</span>';
-  if(!lsWorking){
-    html += '<br><span style="color:var(--c-red)">⚠ 浏览器不支持 localStorage</span>';
-  }
-  el.innerHTML = html;
+  el.innerHTML = '<span style="color:#3A6E58">✓ 最近保存（IndexedDB）：' + timeStr + '</span>';
   /* 详情行：当前数据统计 */
   const detail = document.getElementById('localSaveDetail');
   if(detail){
@@ -1172,6 +1368,48 @@ function updateLocalSaveLine(){
     const bodyCount = (state.bodies||[]).length;
     const dataSize = JSON.stringify(state).length;
     detail.innerHTML = '当前数据：' + clothCount + ' 件衣服 · ' + bodyCount + ' 个体子 · 数据大小 ' + (dataSize/1024).toFixed(1) + ' KB';
+  }
+}
+/* 更新存储用量显示（首页 + 设置页） */
+async function updateStorageUsage(){
+  const est = await getStorageEstimate();
+  /* 首页存储卡片 */
+  const homeEl = document.getElementById('storageUsageCard');
+  if(homeEl){
+    if(est && est.quota > 0){
+      const pct = (est.usage / est.quota * 100).toFixed(1);
+      const usageStr = formatBytes(est.usage);
+      const quotaStr = formatBytes(est.quota);
+      const isWarn = parseFloat(pct) > 80;
+      homeEl.innerHTML = `
+        <div class="su-bar"><div class="su-fill${isWarn?' warn':''}" style="width:${Math.min(parseFloat(pct),100)}%"></div></div>
+        <div class="su-info">
+          <span class="su-label">存储用量</span>
+          <span class="su-val${isWarn?' warn':''}">${usageStr} / ${quotaStr}（${pct}%）</span>
+        </div>
+        <div class="su-hint">IndexedDB 主存储 · 容量充足，无需担心数据丢失</div>
+      `;
+    }else{
+      const dataSize = JSON.stringify(state).length;
+      homeEl.innerHTML = `
+        <div class="su-info">
+          <span class="su-label">存储用量</span>
+          <span class="su-val">约 ${formatBytes(dataSize)}</span>
+        </div>
+        <div class="su-hint">IndexedDB 主存储 · 容量充足，无需担心数据丢失</div>
+      `;
+    }
+  }
+  /* 设置页存储详情 */
+  const settingsEl = document.getElementById('storageDetailLine');
+  if(settingsEl){
+    if(est && est.quota > 0){
+      const pct = (est.usage / est.quota * 100).toFixed(1);
+      settingsEl.innerHTML = `IndexedDB 存储用量：${formatBytes(est.usage)} / ${formatBytes(est.quota)}（${pct}%）`;
+    }else{
+      const dataSize = JSON.stringify(state).length;
+      settingsEl.innerHTML = `数据大小：${formatBytes(dataSize)}（IndexedDB 主存储，容量充足）`;
+    }
   }
 }
 
@@ -1253,25 +1491,9 @@ async function ghPush(){
   throw new Error('云端数据刚刚被其他设备更新，请稍候再同步');
 }
 let syncTimer = null;
-function scheduleSyncPush(){
-  const cfg = getSyncCfg();
-  if(!cfg || !cfg.token) return;
-  if(!syncState.connected) return;
-  clearTimeout(syncTimer);
-  syncTimer = setTimeout(async ()=>{
-    syncState.busy = true; updateSyncBadge();
-    try{
-      await ghPush();
-      showSaveBadge(true, '☁ 已云同步');
-    }catch(e){
-      syncState.lastError = String(e.message||e);
-      updateSyncBadge();
-      showSaveBadge(false, '⚠ 云同步失败');
-    }
-    syncState.busy = false; updateSyncBadge();
-  }, 2000);
-}
-function localSavedAt(){ return Number(lsGet('wb_saved_at')||0); }
+/* 云端同步为手动模式：不自动推送，仅当用户点击「上传到云端」按钮时才执行 ghPush */
+function scheduleSyncPush(){ /* manual mode: no auto push */ }
+function localSavedAt(){ return Number(state && state._savedAt || 0); }
 async function syncConnect(cfg, opts){
   opts = opts||{};
   cfg = Object.assign({}, GH_DEFAULTS, cfg||{});
@@ -1279,7 +1501,7 @@ async function syncConnect(cfg, opts){
   if(!/^[^/]+\/[^/]+$/.test(cfg.repo||'')){ toast('请填写仓库（格式：用户名/仓库名）','err'); return false; }
   syncState.busy = true; updateSyncBadge();
   try{
-    /* 先验证令牌与仓库 */
+    /* 仅验证令牌与仓库是否可用；手动模式下连接时不上传、不下载任何数据 */
     try{ await ghApi(cfg, '/repos/'+encRepo(cfg.repo)); }
     catch(e){
       const st = e.status;
@@ -1288,24 +1510,10 @@ async function syncConnect(cfg, opts){
       else if(st===404) hint = '（仓库不存在，或令牌没有 repo 权限）';
       throw new Error('连接失败 HTTP '+st+' '+hint);
     }
-    const row = await ghPullWith(cfg);
-    const localAt = localSavedAt();
-    const remoteAt = row ? new Date(row.updated_at).getTime() : 0;
-    const localHas = !!lsGet();
     setSyncCfg(cfg);
-    if(row && remoteAt > localAt){
-      /* 云端较新：本机采用云端数据 */
-      lsSet(STORE_KEY, JSON.stringify(row.data));
-      lsSet('wb_saved_at', String(remoteAt));
-      syncState.connected = true; syncState.busy = false;
-      if(!opts.silent) toast('已连接：云端版本较新，已同步到本机');
-      location.reload();
-      return true;
-    }
-    if(!row && localHas){ await ghPush(); }
-    syncState.connected = true; syncState.lastError = '';
-    syncState.busy = false; updateSyncBadge();
-    if(!opts.silent) toast('云端同步已连接');
+    syncState.connected = true; syncState.busy = false; syncState.lastError = '';
+    updateSyncBadge();
+    if(!opts.silent) toast('云端已连接（手动模式：点「上传到云端」才会上传）');
     renderPage();
     return true;
   }catch(e){
@@ -1324,33 +1532,10 @@ async function syncDisconnect(){
   updateSyncBadge(); renderPage();
   toast('已断开云端同步（数据仍保存在本机）');
 }
-/* 启动时若已配置则静默自动连接：云端较新则自动拉取 */
+/* 启动时仅刷新云同步状态标记（手动模式：不做任何网络上传/下载） */
 async function syncAutoResume(){
   const cfg = getSyncCfg();
-  if(!cfg || !cfg.token) { updateSyncBadge(); return; }
-  try{
-    const row = await ghPullWith(cfg);
-    if(row && row.data){
-      /* 云端有数据 → 直接采用云端数据（本地存储不可用时这是唯一数据源） */
-      const remoteAt = new Date(row.updated_at).getTime();
-      const cloudData = row.data;
-      cloudData._savedAt = remoteAt;
-      state = cloudData;
-      /* 补全缺失字段 */
-      for(const k in defaultData){ if(typeof state[k] === 'undefined') state[k] = JSON.parse(JSON.stringify(defaultData[k])); }
-      try{ lsSet(STORE_KEY, JSON.stringify(state)); lsSet('wb_saved_at', String(remoteAt)); }catch(e){}
-      syncState.connected = true;
-      renderPage();
-    }else{
-      /* 云端无数据 → 首次使用，把当前数据推上去 */
-      syncState.connected = true;
-      await ghPush();
-    }
-  }catch(e){
-    syncState.lastError = String(e.message||e);
-    /* 即使拉取失败也标记为已连接，让后续保存可以尝试推送 */
-    syncState.connected = true;
-  }
+  syncState.connected = !!(cfg && cfg.token);
   updateSyncBadge();
 }
 function syncBadgeHTML(){
@@ -1358,7 +1543,7 @@ function syncBadgeHTML(){
   if(syncState.connected && syncState.lastError) return '<span class="sync-badge err" title="'+esc(syncState.lastError)+'"><span class="dot"></span>☁ 同步异常</span>';
   if(syncState.connected){
     const t = syncState.lastSyncAt ? new Date(syncState.lastSyncAt).toTimeString().slice(0,5) : '';
-    return '<span class="sync-badge on"><span class="dot"></span>☁ 已连接'+(t?' '+t:'')+'</span>';
+    return '<span class="sync-badge on"><span class="dot"></span>☁ 手动上传'+(t?' '+t:'')+'</span>';
   }
   return '<span class="sync-badge off"><span class="dot"></span>☁ 未连接云端</span>';
 }
@@ -1372,19 +1557,34 @@ function updateSyncBadge(){
   if(box) box.innerHTML = syncState.connected
     ? (syncState.lastError
         ? '<span style="color:#C2455A">同步异常：'+esc(syncState.lastError).slice(0,80)+'</span>'
-        : '<span style="color:#3A6E58">已连接 · 数据自动双向同步'+(syncState.lastSyncAt?(' · 上次 '+new Date(syncState.lastSyncAt).toLocaleString()):'')+'</span>')
-    : '<span style="color:var(--c-text-3)">未连接 · 数据仅保存在本机</span>';
+        : '<span style="color:#3A6E58">已连接 · 手动上传模式（点「上传到云端」按钮才上传）'+(syncState.lastSyncAt?(' · 上次上传 '+new Date(syncState.lastSyncAt).toLocaleString()):'')+'</span>')
+    : '<span style="color:var(--c-text-3)">未连接 · 数据仅保存在本机（IndexedDB）</span>';
+  updateHomeSyncBadge();
+}
+/* 首页云同步卡片状态 */
+function updateHomeSyncBadge(){
+  const el = document.getElementById('homeSyncBadge');
+  if(!el) return;
+  if(syncState.busy){ el.innerHTML = '<span style="color:#427EA4">同步中…</span>'; return; }
+  if(syncState.connected){
+    const t = syncState.lastSyncAt ? new Date(syncState.lastSyncAt).toLocaleString() : '尚未上传';
+    el.innerHTML = syncState.lastError
+      ? '<span style="color:#C2455A">同步异常</span>'
+      : '<span style="color:#3A6E58">✓ 已连接<br><span style="font-size:11px">'+t+'</span></span>';
+  }else{
+    el.innerHTML = '<span style="color:var(--c-text-3)">未连接</span>';
+  }
 }
 
 /* ==== 云同步快捷面板：点击侧边栏/顶栏 ☁ 胶囊打开 ==== */
 function syncModalStatusHTML(){
   if(syncState.busy) return '<span style="color:#427EA4">☁ 同步中，请稍候…</span>';
-  if(syncState.connected && syncState.lastError) return '<span style="color:#C2455A">☁ 已连接但上次同步异常：'+esc(syncState.lastError).slice(0,60)+'</span>';
+  if(syncState.connected && syncState.lastError) return '<span style="color:#C2455A">☁ 已连接但上次上传异常：'+esc(syncState.lastError).slice(0,60)+'</span>';
   if(syncState.connected){
-    const t = syncState.lastSyncAt ? new Date(syncState.lastSyncAt).toLocaleString() : '尚未同步';
-    return '<span style="color:#3A6E58">☁ 已连接云端 · 上次同步：'+t+'</span>';
+    const t = syncState.lastSyncAt ? new Date(syncState.lastSyncAt).toLocaleString() : '尚未上传';
+    return '<span style="color:#3A6E58">☁ 已连接云端 · 上次上传：'+t+'</span>';
   }
-  return '<span style="color:var(--c-text-3)">☁ 未连接 · 数据仅保存在本机（自动保存不受影响）</span>';
+  return '<span style="color:var(--c-text-3)">☁ 未连接 · 数据仅保存在本机 IndexedDB（自动保存不受影响）</span>';
 }
 function gotoSyncSettings(){
   closeModal(); switchPage('settings');
@@ -1398,11 +1598,11 @@ function openSyncModal(){
     <div style="font-size:13px;margin-bottom:14px" id="syncModalStatus">${syncModalStatusHTML()}</div>
     ${on ? `
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" id="smPush" style="padding:10px 16px;min-height:44px;font-size:14px">立即同步到云端</button>
+        <button class="btn btn-primary" id="smPush" style="padding:10px 16px;min-height:44px;font-size:14px">⬆ 上传到云端</button>
         <button class="btn btn-outline" id="smPull" style="padding:10px 16px;min-height:44px;font-size:14px">从云端拉取</button>
         <button class="btn btn-ghost" id="smOff" style="padding:10px 16px;min-height:44px;font-size:14px">断开</button>
       </div>
-      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">已连接时，每次修改都会自动保存并同步到云端（约 6 秒内推送到您的 GitHub 仓库），换设备打开后自动拉取最新数据。</div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">手动模式：数据每次修改自动保存到本机 IndexedDB；<b>只有点击「上传到云端」时才会上传</b>到您的 GitHub 仓库。换设备时可点「从云端拉取」恢复。</div>
     ` : `
       <div class="sync-form-row"><label>GitHub 访问令牌（Token）</label><input id="smToken" type="password" placeholder="ghp_...（github.com/settings/tokens 生成，勾选 repo 权限）" autocomplete="off" spellcheck="false"></div>
       <div class="sync-form-row"><label>数据仓库（用户名/仓库名）</label><input id="smRepo" placeholder="如：Sujiu489/wanwa-riji" value="${esc(cfg.repo||GH_DEFAULTS.repo)}" autocomplete="off" spellcheck="false"></div>
@@ -1421,18 +1621,20 @@ function openSyncModal(){
     q('smPush').onclick = async ()=>{
       syncState.busy = true; updateSyncBadge();
       const st = q('syncModalStatus'); if(st) st.innerHTML = syncModalStatusHTML();
-      try{ await ghPush(); toast('已同步到云端'); }
-      catch(e){ syncState.lastError = String(e.message||e); toast('同步失败：'+syncState.lastError,'err'); }
+      try{ await ghPush(); toast('已上传到云端'); }
+      catch(e){ syncState.lastError = String(e.message||e); toast('上传失败：'+syncState.lastError,'err'); }
       syncState.busy = false; updateSyncBadge();
       const st2 = q('syncModalStatus'); if(st2) st2.innerHTML = syncModalStatusHTML();
     };
-    q('smPull').onclick = ()=> confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未同步的改动会丢失），确认继续？', async ()=>{
+    q('smPull').onclick = ()=> confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未上传的改动会丢失），确认继续？', async ()=>{
       const c = getSyncCfg(); if(!c) return;
       try{
         const row = await ghPullWith(c);
         if(row){
-          lsSet(STORE_KEY, JSON.stringify(row.data));
-          lsSet('wb_saved_at', String(new Date(row.updated_at).getTime()));
+          const json = JSON.stringify(row.data);
+          const remoteAt = new Date(row.updated_at).getTime();
+          await idbSet(IDB_DATA, json);
+          await idbSet(IDB_AT, remoteAt);
           toast('已从云端拉取，正在刷新');
           location.reload();
         } else toast('云端暂无数据','err');
@@ -1448,29 +1650,9 @@ function openSyncModal(){
   }
 }
 
+/* 同步初始化：默认数据（真实数据由 localRestore() 异步从 IndexedDB 加载） */
 function loadData(){
-  try{
-    const raw = lsGet();
-    if(!raw) return JSON.parse(JSON.stringify(defaultData));
-    const data = JSON.parse(raw);
-    for(const k in defaultData){
-      if(typeof data[k] === 'undefined') data[k] = JSON.parse(JSON.stringify(defaultData[k]));
-    }
-    // 兼容迁移：库存没有 total 字段时，按 price×qty 补初始化
-    if(Array.isArray(data.maoStock)){
-      data.maoStock.forEach(s => {
-        if(typeof s.total === 'undefined' || s.total === null){
-          s.total = Number(s.price||0) * Number(s.qty||0);
-        }
-      });
-    }
-    // 兼容迁移：默认9分类底色按深浅蓝新顺序重排
-    if(Array.isArray(data.categories)){
-      const order = ['cat_dress','cat_top','cat_coat','cat_pants','cat_shoes','cat_eyes','cat_wig','cat_acc','cat_gufeng'];
-      data.categories.forEach(c=>{ const i = order.indexOf(c.id); if(i>=0) c.bg = i+1; });
-    }
-    return data;
-  }catch(e){ return JSON.parse(JSON.stringify(defaultData)); }
+  return JSON.parse(JSON.stringify(defaultData));
 }
 /* 自动保存：本机立即双层落盘（localStorage + IndexedDB）+ 记录保存时间 + 防抖推送到云端 */
 let __saveBadgeTimer = null;
@@ -1490,41 +1672,33 @@ function showSaveBadge(ok, label){
 function saveData(){
   state._savedAt = Date.now();
   const json = JSON.stringify(state);
-  const lsOk = lsSetVerified(json);
-  if(lsOk) lsSet('wb_saved_at', String(state._savedAt));
-  __lastSavePromise = backupToLocal();
-  const cloudReady = !!(getSyncCfg() && getSyncCfg().token);
-  scheduleSyncPush();
+  /* 仅存 IndexedDB（容量大，不会静默失败）；云端为手动上传模式，不自动推送 */
+  __lastSavePromise = idbSet(IDB_DATA, json).then(()=>{
+    return idbSet(IDB_AT, state._savedAt);
+  });
   updateLocalSaveLine();
-  /* 指示器逻辑：
-     LS 成功 → 立刻绿
-     LS 失败 + 云同步可用 → 显示"☁ 正在云同步…"，等推送结果
-     LS 失败 + 云同步不可用 → 等 IDB 结果
-     两层都失败且无云同步 → 红 */
-  if(lsOk){
-    showSaveBadge(true);
-  }else if(cloudReady){
-    showSaveBadge(true, '☁ 正在云同步…');
-  }else{
-    showSaveBadge(true, '⏳ 正在保存…');
-    __lastSavePromise.then(idbOk=>{
-      if(idbOk) showSaveBadge(true, '💾 已保存');
-      else showSaveBadge(false);
-    });
-  }
+  updateStorageUsage();
+  __lastSavePromise.then(idbOk=>{
+    if(idbOk) showSaveBadge(true);
+    else showSaveBadge(false, '⚠ 保存失败');
+  });
 }
-/* 强制保存（async）：手动保存按钮使用，确保 IndexedDB 写入完成后才返回，并验证两层存储 */
+/* 强制保存（async）：手动保存按钮使用，确保 IndexedDB 写入完成后才返回，并验证读回一致 */
 async function forceSave(){
   state._savedAt = Date.now();
   const json = JSON.stringify(state);
-  const lsOk = lsSetVerified(json);
-  if(lsOk) lsSet('wb_saved_at', String(state._savedAt));
-  const idbOk = await backupToLocal();
+  let idbWriteOk = false;
+  try{
+    await idbSet(IDB_DATA, json);
+    await idbSet(IDB_AT, state._savedAt);
+    const verify = await idbGet(IDB_DATA);
+    idbWriteOk = (verify === json);
+  }catch(e){ idbWriteOk = false; }
   __lastSavePromise = Promise.resolve();
-  scheduleSyncPush();
   updateLocalSaveLine();
-  showSaveBadge(lsOk || idbOk, lsOk ? '💾 已保存' : (idbOk ? '💾 已保存(备份)' : '⚠ 保存失败'));
-  return { lsOk, idbOk };
+  updateStorageUsage();
+  showSaveBadge(idbWriteOk, idbWriteOk ? '💾 已保存' : '⚠ 保存失败');
+  return { idbOk: idbWriteOk };
 }
 let __lastSavePromise = Promise.resolve();
 let state = loadData();
@@ -1533,7 +1707,7 @@ let state = loadData();
    之前在「陈列」视图添加/编辑衣服时，category 可能被误存为筛选器值 'all'、
    status 被误存为 'all'，导致衣服不属于任何分类而「消失」、无法点击和删除。
    这里在加载时自动把这类衣服归回第一个分类，恢复正常显示。 */
-(function repairClothesData(){
+function repairClothesData(){
   if(!Array.isArray(state.clothes) || !Array.isArray(state.categories)) return;
   const catIds = new Set(state.categories.map(c=>c.id));
   const fallbackCat = state.categories.length ? state.categories[0].id : '';
@@ -1543,7 +1717,8 @@ let state = loadData();
     if(!catIds.has(c.category)) c.category = fallbackCat;
     if(c.status!=='shipped' && c.status!=='not_shipped') c.status = 'not_shipped';
   });
-})();
+}
+repairClothesData();
 
 /* ================= Helpers ================= */
 const $ = (sel, root=document) => root.querySelector(sel);
@@ -1687,59 +1862,35 @@ document.getElementById('privacyOk').addEventListener('click', ()=>{
   lsSet('wb_priv_v1','1');
 });
 
-/* ================= 云端同步：启动自动恢复 + 退后台前强推 ================= */
+/* ================= 云端同步：手动模式（启动仅刷新状态徽标，不自动上传/下载） ================= */
 updateSyncBadge();
 syncAutoResume();
-/* ================= 本地历史数据恢复：对比 localStorage 与 IndexedDB 时间戳，使用更新的版本 ================= */
+/* ================= 启动加载：数据仅存 IndexedDB，打开页面时从 IndexedDB 提取 ================= */
 async function localRestore(){
-  const raw = lsGet();
   const idbRaw = await idbGet(IDB_DATA);
-  
-  /* 提取两个存储层的数据内部时间戳 */
-  let lsTime = 0, idbTime = 0;
-  try{ if(raw){ const d = JSON.parse(raw); lsTime = d._savedAt || 0; } }catch(e){}
-  try{ if(idbRaw){ const d = JSON.parse(idbRaw); idbTime = d._savedAt || 0; } }catch(e){}
-  
-  /* 也检查外部时间戳作为备用 */
-  const lsExtTime = Number(lsGet('wb_saved_at')||0);
-  const idbExtTime = (await idbGet(IDB_AT)) || 0;
-  lsTime = Math.max(lsTime, lsExtTime);
-  idbTime = Math.max(idbTime, idbExtTime);
-  
-  if(!raw && !idbRaw){
-    /* 两个存储层都空 → 全新用户，无需恢复 */
-    return;
-  }
-  
-  if(idbRaw && (!raw || idbTime > lsTime + 1000)){
-    /* IndexedDB 有更新数据 → 从 IndexedDB 恢复（即使 localStorage 非空也恢复）
-       +1000ms 容差：避免双写时微小时间差导致反复覆盖 */
+  if(idbRaw){
     try{
-      const idbData = JSON.parse(idbRaw);
-      JSON.parse(JSON.stringify(idbData)); /* 深拷贝校验 */
-      lsSet(STORE_KEY, idbRaw);
-      lsSet('wb_saved_at', String(idbTime));
-      state = loadData();
-      renderPage();
-      toast('已自动恢复最新数据（来自本机备份）');
-      saveData();
+      const data = JSON.parse(idbRaw);
+      state = mergeData(data);
+      repairClothesData();
     }catch(e){
-      console.warn('IndexedDB 恢复失败', e);
+      console.warn('IndexedDB 数据解析失败', e);
     }
-    return;
+  }else{
+    /* 一次性迁移：旧版本把数据存在 localStorage，迁到 IndexedDB 后再删除旧副本 */
+    const raw = lsGet();
+    if(raw){
+      try{
+        state = mergeData(JSON.parse(raw));
+        repairClothesData();
+        await idbSet(IDB_DATA, JSON.stringify(state));
+        await idbSet(IDB_AT, Number(lsGet('wb_saved_at')||0) || Date.now());
+      }catch(e){}
+    }
   }
-  
-  if(raw && !idbRaw){
-    /* localStorage 有数据但 IndexedDB 空 → 补建备份 */
-    backupToLocal();
-  }
-  
-  if(raw && idbRaw && lsTime > idbTime + 1000){
-    /* localStorage 更新 → 同步到 IndexedDB */
-    backupToLocal();
-  }
-  
-  /* 云端同步配置若也被清理，同样从备份恢复 */
+  /* 数据此后只存 IndexedDB：清掉 localStorage 里的旧数据副本 */
+  try{ localStorage.removeItem(STORE_KEY); localStorage.removeItem('wb_saved_at'); }catch(e){}
+  /* 云端同步配置若之前存过 IndexedDB 备份，读回（仅配置，不触发网络） */
   if(!getSyncCfg()){
     const cfgRaw = await idbGet(IDB_CFG);
     if(cfgRaw){
@@ -1747,55 +1898,38 @@ async function localRestore(){
     }
   }
 }
-localRestore();
+const __restoreReady = localRestore();
 /* 启动时请求持久化存储权限（防止手机浏览器自动清理数据） */
 requestPersistentStorage();
-/* 退后台 / 关闭页面前：本地双层落盘（+ 已连接云端时强推） */
+
+/* ==== 打开工作台时自动备份一次 + 定时备份 ==== */
+/* 延迟 2 秒执行自动备份，确保 state 已完成初始化和恢复 */
+setTimeout(async ()=>{
+  const bk = await createBackupSnapshot('open');
+  if(bk) console.log('✓ 已自动备份', new Date(bk.timestamp).toLocaleString());
+  updateStorageUsage();
+}, 2000);
+
+/* 定时自动备份：每 30 分钟创建一份快照 */
+let __autoBackupTimer = setInterval(async ()=>{
+  await createBackupSnapshot('periodic');
+}, 30 * 60 * 1000);
+
+/* 退后台 / 关闭页面前：IndexedDB 落盘 + 创建备份快照（云同步为手动模式，不自动上传） */
 function flushLocal(){
   try{
     state._savedAt = Date.now();
     const json = JSON.stringify(state);
-    lsSetVerified(json);
-    lsSet('wb_saved_at', String(state._savedAt));
+    idbSet(IDB_DATA, json);
+    idbSet(IDB_AT, state._savedAt);
   }catch(e){}
-  /* 确保 IndexedDB 写入也启动（异步，但页面关闭前尽量触发） */
-  backupToLocal();
+  /* 退出前也创建一份备份快照 */
+  createBackupSnapshot('exit');
 }
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'hidden'){
-    flushLocal();
-    const cfg = getSyncCfg();
-    if(cfg && cfg.token){
-      clearTimeout(syncTimer);
-      ghPush().catch(e=>{ syncState.lastError = String(e.message||e); updateSyncBadge(); });
-    }
-  }
+  if(document.visibilityState === 'hidden') flushLocal();
 });
-window.addEventListener('pagehide', ()=>{
-  flushLocal();
-  const cfg = getSyncCfg();
-  if(cfg && cfg.token){
-    clearTimeout(syncTimer);
-    try{ ghPush(); }catch(e){}
-  }
-});
-/* 多标签页 / 多设备期间定期检查云端是否有更新（每 2 分钟拉一次时间戳） */
-setInterval(async ()=>{
-  const cfg = getSyncCfg();
-  if(!cfg || !syncState.connected) return;
-  try{
-    const row = await ghPullWith(cfg);
-    if(row){
-      const remoteAt = new Date(row.updated_at).getTime();
-      if(remoteAt > localSavedAt() + 3000){
-        lsSet(STORE_KEY, JSON.stringify(row.data));
-        lsSet('wb_saved_at', String(remoteAt));
-        toast('检测到其他设备的最新数据，已同步');
-        location.reload();
-      }
-    }
-  }catch(e){}
-}, 120000);
+window.addEventListener('pagehide', ()=> flushLocal());
 
 /* ================= Brand / Avatar ================= */
 function updateBrand(){
@@ -1911,6 +2045,23 @@ function renderHome(){
       <div class="value">${fmt(s.total)}</div>
     </div>
 
+    <div class="storage-usage-card" id="storageUsageCard">
+      <div class="su-title">${svgIcon('settings',16)} 存储用量</div>
+      <div class="su-info"><span class="su-label">加载中…</span><span class="su-val">—</span></div>
+    </div>
+
+    <div class="cloud-sync-card" id="cloudSyncCard">
+      <div class="cs-head">
+        <span style="font-size:18px">☁️</span>
+        <span class="cs-title">云同步</span>
+        <span class="cs-status" id="homeSyncBadge"></span>
+      </div>
+      <div class="cs-actions">
+        <button class="btn btn-primary cs-btn" id="homeSyncUp">⬆ 上传到云端</button>
+        <button class="btn btn-outline cs-btn" id="homeSyncDown">⬇ 从云端拉取</button>
+      </div>
+    </div>
+
     <div class="jump-cards">
       <div class="jump-card" data-go="clothes">
         <div class="ic">${svgIcon('clothes',22)}</div>
@@ -1969,6 +2120,31 @@ function bindHome(){
     openAvatarModal(()=>{ updateBrand(); renderPage(); });
   });
   $('#editTitleBtn').addEventListener('click', ()=> openHomeEditModal());
+  updateStorageUsage();
+  /* 首页云同步按钮 */
+  const syncUpBtn = pageEl.querySelector('#homeSyncUp');
+  const syncDownBtn = pageEl.querySelector('#homeSyncDown');
+  if(syncUpBtn){
+    syncUpBtn.addEventListener('click', async ()=>{
+      const cfg = getSyncCfg();
+      if(!cfg || !cfg.token){ toast('请先配置云同步令牌','err'); openSyncModal(); return; }
+      syncState.busy = true; updateSyncBadge();
+      syncUpBtn.disabled = true; syncUpBtn.textContent = '⬆ 正在上传…';
+      try{
+        await ghPush();
+        toast('✓ 已上传到云端');
+      }catch(e){
+        syncState.lastError = String(e.message||e);
+        toast('上传失败：'+syncState.lastError,'err');
+      }
+      syncState.busy = false; updateSyncBadge();
+      syncUpBtn.disabled = false; syncUpBtn.textContent = '⬆ 上传到云端';
+    });
+  }
+  if(syncDownBtn){
+    syncDownBtn.addEventListener('click', ()=> openSyncModal());
+  }
+  updateHomeSyncBadge();
 }
 
 function openHomeEditModal(){
@@ -3423,21 +3599,89 @@ function renderSettings(){
     </div>
 
     <div class="setting-section">
-      <h3>💾 本地保存</h3>
-      <div id="localSavePanel" style="background:var(--c-bg-2);border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px;line-height:1.8">
+      <h3>💾 本地保存（IndexedDB）</h3>
+      <div id="localSavePanel" style="background:#EAF3F7;border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px;line-height:1.8">
         <div id="localSaveLine"></div>
         <div id="localSaveDetail" style="margin-top:6px;font-size:12px;color:var(--c-text-3)"></div>
+        <div id="storageDetailLine" style="margin-top:4px;font-size:12px;color:var(--c-blue)"></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <button class="btn btn-primary" id="manualSaveBtn" style="padding:10px 20px;min-height:44px;font-size:14px">💾 手动保存到本机</button>
-        <button class="btn btn-outline" id="manualReloadBtn" style="padding:10px 16px;min-height:44px;font-size:14px">📂 从本机重新读取</button>
+        <button class="btn btn-outline" id="manualReloadBtn" style="padding:10px 16px;min-height:44px;font-size:14px">📂 从 IndexedDB 重新读取</button>
       </div>
       <div id="saveResultBox" style="display:none;margin-bottom:12px;padding:10px;border-radius:8px;font-size:13px;line-height:1.7"></div>
       <div style="font-size:12px;color:var(--c-text-3);line-height:1.8">
-        点击「手动保存到本机」可<b>立即存档</b>当前所有数据（含云端推送），保存后会显示详细结果。<br>
-        每次修改也会<b>自动保存</b>并自动同步到云端；下次打开页面会<b>自动从云端恢复</b>历史数据。<br>
-        <b style="color:#3A6E58">☁ 云端同步已内置</b>：数据自动保存到 GitHub 仓库，换手机/重开浏览器也不会丢失。<br>
-        <b style="color:var(--c-red)">注意</b>：部分手机浏览器（如微信内置浏览器）会自动清理本地数据，此时本地存储可能失败，但<b>云端同步仍可正常工作</b>。
+        <b style="color:#3A6E58">✓ 仅使用 IndexedDB 存储</b>：容量远超 localStorage（数百 MB~GB 级），<b>不会静默写入失败</b>，数据不再写入 localStorage。<br>
+        每次修改会<b>自动保存</b>到 IndexedDB；打开页面时从 IndexedDB <b>自动加载</b>并<b>自动备份</b>一份快照；每 30 分钟<b>定时备份</b>。<br>
+        <b style="color:var(--c-red)">注意</b>：不再使用 localStorage 存数据，旧数据会自动迁移到 IndexedDB 并清理。
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <h3>${svgIcon('list',18)} 数据导入导出</h3>
+      <div class="setting-row">
+        <div>
+          <div class="label">📊 一键导出 Excel</div>
+          <div class="desc">将全部数据（衣服/体子/毛娘）导出为 Excel 文件</div>
+        </div>
+        <button class="btn btn-primary" id="excelExportBtn" style="padding:8px 14px;min-height:36px;font-size:13px">📊 导出 Excel</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label">导出 CSV（衣服数据）</div>
+          <div class="desc">导出为 CSV 文件，可用 Excel/WPS 打开编辑</div>
+        </div>
+        <button class="btn btn-outline" id="csvExportBtn" style="padding:8px 14px;min-height:36px;font-size:13px">导出 CSV</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label">导入 CSV（批量录入衣服）</div>
+          <div class="desc">从 CSV 文件批量导入衣服数据，合并到现有数据</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" id="csvImportBtn" style="padding:8px 14px;min-height:36px;font-size:13px">导入 CSV</button>
+          <input type="file" id="csvImportFile" accept=".csv" style="display:none">
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label">下载导入模板</div>
+          <div class="desc">下载 CSV 模板文件，填好数据后用「导入 CSV」批量录入</div>
+        </div>
+        <button class="btn btn-outline" id="templateBtn" style="padding:8px 14px;min-height:36px;font-size:13px">下载模板</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label">导出全部数据备份（JSON）</div>
+          <div class="desc">将所有数据导出为 JSON 文件保存，文件名含日期时间戳</div>
+        </div>
+        <button class="btn btn-outline" id="exportBtn" style="padding:8px 14px;min-height:36px;font-size:13px">${svgIcon('upload',14)} 导出</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label">导入备份文件（JSON）</div>
+          <div class="desc">从之前导出的 JSON 恢复数据（换电脑恢复数据用）</div>
+        </div>
+        <button class="btn btn-outline" id="importBtn" style="padding:8px 14px;min-height:36px;font-size:13px">${svgIcon('upload',14)} 导入</button>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <h3>🔄 备份与恢复</h3>
+      <div style="font-size:12px;color:var(--c-text-3);margin-bottom:10px;line-height:1.6">
+        打开工作台时自动创建一份备份快照（存储在 IndexedDB），每 30 分钟定时备份。下方可查看备份历史、下载或恢复。
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn btn-primary" id="backupNowBtn" style="padding:8px 14px;min-height:36px;font-size:13px">立即备份</button>
+        <button class="btn btn-outline" id="backupDownloadBtn" style="padding:8px 14px;min-height:36px;font-size:13px">下载当前备份</button>
+        <button class="btn btn-outline" id="restoreFileBtn" style="padding:8px 14px;min-height:36px;font-size:13px">从文件恢复</button>
+        <input type="file" id="restoreFile" accept=".json" style="display:none">
+      </div>
+      <div style="font-size:13px;font-weight:500;color:var(--c-dark);margin-bottom:6px">备份历史</div>
+      <div class="backup-list" id="backupList"></div>
+      <div style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.5">
+        💡 换电脑时：在新电脑打开此页面 → 点击「从文件恢复」→ 选择之前下载的备份 JSON 文件即可恢复全部数据。
       </div>
     </div>
 
@@ -3457,35 +3701,20 @@ function renderSettings(){
         <input id="syncBranch" placeholder="main" autocomplete="off" spellcheck="false">
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn btn-primary" id="syncConnectBtn" style="padding:8px 16px;min-height:38px;font-size:13px">连接云端</button>
+        <button class="btn btn-primary" id="syncUpBtn" style="padding:8px 16px;min-height:38px;font-size:13px">⬆ 上传到云端</button>
+        <button class="btn btn-outline" id="syncConnectBtn" style="padding:8px 16px;min-height:38px;font-size:13px">连接云端</button>
         <button class="btn btn-outline" id="syncDisconnectBtn" style="padding:8px 16px;min-height:38px;font-size:13px">断开</button>
-        <button class="btn btn-outline" id="syncUpBtn" style="padding:8px 16px;min-height:38px;font-size:13px">以本机为准上传</button>
         <button class="btn btn-outline" id="syncDownBtn" style="padding:8px 16px;min-height:38px;font-size:13px">从云端拉取覆盖本机</button>
       </div>
       <div style="font-size:12px;color:var(--c-text-3);margin-top:12px;line-height:1.7">
-        使用方法：到 <b>github.com → Settings → Developer settings → Personal access tokens</b> 生成令牌（勾选 <b>repo</b> 权限），粘贴到上面点「连接云端」。<br>
+        使用方法：到 <b>github.com → Settings → Developer settings → Personal access tokens</b> 生成令牌（勾选 <b>repo</b> 权限），粘贴到上面点「连接云端」验证。<br>
         令牌只保存在本机浏览器，<b>不会</b>写进网页或泄露；每台设备粘贴一次即可。<br>
-        连接后数据自动同步到仓库的 <b>data.json</b>，多台手机/电脑数据保持一致；<b style="color:#3A6E58">☁ 已连接</b>（绿）= 自动双向同步；<b style="color:#5F7C95">☁ 未连接</b>（灰）= 仅保存在本机。
+        <b style="color:#3A6E58">手动上传模式</b>：数据每次修改自动保存到本机 IndexedDB；<b>只有点击「上传到云端」时才会上传</b>到 GitHub 仓库的 <b>data.json</b>。换设备时可点「从云端拉取」恢复数据。
       </div>
     </div>
 
     <div class="setting-section">
-      <h3>${svgIcon('list',18)} 数据管理</h3>
-      <div class="setting-row">
-        <div>
-          <div class="label">导出全部数据备份</div>
-          <div class="desc">将所有数据导出为 JSON 文件保存</div>
-        </div>
-        <button class="btn btn-outline" id="exportBtn" style="padding:8px 14px;min-height:36px;font-size:13px">${svgIcon('upload',14)} 导出</button>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="label">导入备份文件</div>
-          <div class="desc">从之前导出的 JSON 恢复数据</div>
-        </div>
-        <button class="btn btn-outline" id="importBtn" style="padding:8px 14px;min-height:36px;font-size:13px">${svgIcon('upload',14)} 导入</button>
-        <input type="file" id="importFile" accept=".json" style="display:none">
-      </div>
+      <h3>${svgIcon('list',18)} 危险操作</h3>
       <div class="setting-row">
         <div>
           <div class="label" style="color:var(--c-red)">清空所有数据</div>
@@ -3498,11 +3727,14 @@ function renderSettings(){
     <div class="setting-section">
       <h3>${svgIcon('bell',18)} 关于</h3>
       <div style="font-size:13px;color:var(--c-text-2);line-height:1.8">
-        <div>📦 数据存储：本机双层（localStorage + IndexedDB），自动保存、自动恢复${storageOK()?'':'（⚠️ 当前环境存储受限，建议连接云端同步）'}
+        <div>📦 数据存储：仅 IndexedDB（不再写入 localStorage），自动保存、自动备份、自动恢复
         </div>
+        <div>🔄 自动备份：打开时备份 + 每 30 分钟定时备份，保留最近 20 份快照</div>
+        <div>☁️ 云端同步：手动上传模式，点「上传到云端」按钮才上传</div>
+        <div>📊 数据迁移：改版后自动合并新字段，保留已录入数据</div>
         <div>🎨 配色：粉青 · 粉黛 · 灰月 · 沙青 · 烟凝</div>
-        <div>🔒 隐私：默认仅存本机；连接云端同步后保存在您自己的 GitHub 仓库</div>
-        <div style="margin-top:8px;color:var(--c-text-3)">v1.3 · 云端优先版 · 由 WorkBuddy 小台搭建</div>
+        <div>🔒 隐私：默认仅存本机；点「上传到云端」后保存在您自己的 GitHub 仓库</div>
+        <div style="margin-top:8px;color:var(--c-text-3)">v2.1 · IndexedDB 纯存储 · 手动云上传 · 由 WorkBuddy 小台搭建</div>
       </div>
     </div>
   `;
@@ -3518,54 +3750,32 @@ function bindSettings(){
       await requestPersistentStorage();
       state._savedAt = Date.now();
       const json = JSON.stringify(state);
-      /* 1. 写入 localStorage 并验证 */
-      let lsWriteOk = false;
-      try{
-        localStorage.setItem(STORE_KEY, json);
-        const readback = localStorage.getItem(STORE_KEY);
-        lsWriteOk = (readback === json);
-      }catch(e){ lsWriteOk = false; }
-      if(lsWriteOk) lsSet('wb_saved_at', String(state._savedAt));
-      /* 2. 写入 IndexedDB 并验证 */
+      /* 写入 IndexedDB（唯一存储层）并读回验证 */
       let idbWriteOk = false;
       try{
         await idbSet(IDB_DATA, json);
-        await idbSet(IDB_AT, state._savedAt || Date.now());
+        await idbSet(IDB_AT, state._savedAt);
         const verify = await idbGet(IDB_DATA);
         idbWriteOk = (verify === json);
       }catch(e){ idbWriteOk = false; }
-      /* 3. 立即推送到云端（不等防抖） */
-      let cloudOk = false;
-      let cloudErr = '';
-      const cfg = getSyncCfg();
-      if(cfg && cfg.token){
-        try{
-          await ghPush();
-          cloudOk = true;
-        }catch(e){ cloudErr = String(e.message||e); }
-      }
       updateLocalSaveLine();
-      /* 4. 显示详细结果 */
+      updateStorageUsage();
+      /* 显示详细结果（云端为手动上传模式，这里不推送） */
       resultBox.style.display = 'block';
       const clothCount = (state.clothes||[]).length;
       const dataSize = (json.length/1024).toFixed(1);
       let html = '<b>保存结果报告</b><br>';
       html += '数据：' + clothCount + ' 件衣服 · ' + dataSize + ' KB<br>';
-      html += 'localStorage 写入：' + (lsWriteOk ? '<span style="color:#3A6E58">✓ 成功</span>' : '<span style="color:var(--c-red)">✗ 失败</span>') + '<br>';
-      html += 'IndexedDB 写入：' + (idbWriteOk ? '<span style="color:#3A6E58">✓ 成功</span>' : '<span style="color:var(--c-red)">✗ 失败</span>') + '<br>';
-      html += '云端同步：' + (cloudOk ? '<span style="color:#3A6E58">✓ 成功</span>' : '<span style="color:var(--c-red)">✗ ' + esc(cloudErr||'未配置') + '</span>') + '<br>';
+      html += 'IndexedDB 写入：' + (idbWriteOk ? '<span style="color:#3A6E58">✓ 成功（读回验证一致）</span>' : '<span style="color:var(--c-red)">✗ 失败</span>') + '<br>';
+      html += '云端上传：手动模式，未上传（需要时点「上传到云端」）<br>';
       html += '保存时间：' + new Date().toLocaleString() + '<br>';
-      if(cloudOk){
-        html += '<span style="color:#3A6E58"><b>✓ 数据已安全保存到云端</b>，下次打开会自动从云端恢复。</span>';
+      if(idbWriteOk){
+        html += '<span style="color:#3A6E58"><b>✓ 数据已安全保存到 IndexedDB</b>，容量充足不会丢失。</span>';
         resultBox.style.background = 'rgba(58,110,88,0.08)';
         resultBox.style.border = '1px solid rgba(58,110,88,0.2)';
-        showSaveBadge(true, '☁ 已云同步');
-      }else if(lsWriteOk || idbWriteOk){
-        html += '<span style="color:#B8860B">⚠ 本地存储成功但云端同步失败。数据仅保存在本机，换设备会丢失。</span>';
-        resultBox.style.background = 'rgba(184,134,11,0.08)';
-        resultBox.style.border = '1px solid rgba(184,134,11,0.2)';
+        showSaveBadge(true, '💾 已保存');
       }else{
-        html += '<span style="color:var(--c-red)"><b>⚠ 本地存储和云端同步均失败！</b>请检查网络连接。</span>';
+        html += '<span style="color:var(--c-red)"><b>⚠ IndexedDB 写入失败！</b>请检查浏览器设置（隐私/无痕模式可能禁用存储）。</span>';
         resultBox.style.background = 'rgba(232,90,111,0.08)';
         resultBox.style.border = '1px solid rgba(232,90,111,0.2)';
         showSaveBadge(false);
@@ -3581,11 +3791,16 @@ function bindSettings(){
     btn.textContent = '💾 手动保存到本机';
   });
   $('#manualReloadBtn').addEventListener('click', ()=>{
-    confirmAction('从本机重新读取', '将从本机存储重新加载数据，<strong>当前未保存的修改会丢失</strong>。确认继续？', ()=>{
-      const fresh = loadData();
-      state = fresh;
+    confirmAction('从本机重新读取', '将从 IndexedDB 重新加载数据，<strong>当前未保存的修改会丢失</strong>。确认继续？', async ()=>{
+      const idbData = await idbLoadData();
+      if(idbData){
+        state = mergeData(idbData);
+        repairClothesData();
+      }else{
+        state = loadData();
+      }
       renderPage();
-      toast('已从本机重新读取历史数据');
+      toast('已从 IndexedDB 重新读取数据');
     });
   });
   /* 云端同步 */
@@ -3605,7 +3820,6 @@ function bindSettings(){
     syncState.busy = true; updateSyncBadge();
     try{
       await ghPush();
-      lsSet('wb_saved_at', String(Date.now()));
       toast('已把本机数据上传到云端');
       renderPage();
     }catch(e){
@@ -3618,12 +3832,14 @@ function bindSettings(){
   $('#syncDownBtn').addEventListener('click', ()=>{
     const cfg = getSyncCfg();
     if(!cfg){ toast('请先连接云端','err'); return; }
-    confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未同步的改动会丢失），确认继续？', async ()=>{
+    confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未上传的改动会丢失），确认继续？', async ()=>{
       try{
         const row = await ghPullWith(cfg);
         if(!row){ toast('云端还没有数据','err'); return; }
-        lsSet(STORE_KEY, JSON.stringify(row.data));
-        lsSet('wb_saved_at', String(new Date(row.updated_at).getTime()));
+        const json = JSON.stringify(row.data);
+        const remoteAt = new Date(row.updated_at).getTime();
+        await idbSet(IDB_DATA, json);
+        await idbSet(IDB_AT, new Date(row.updated_at).getTime());
         location.reload();
       }catch(e){ toast('拉取失败：'+String(e.message||e),'err'); }
     });
@@ -3659,7 +3875,7 @@ function bindSettings(){
       try{
         const data = JSON.parse(ev.target.result);
         confirmAction('确认导入','导入将覆盖当前所有数据，确认继续？',()=>{
-          state = data;
+          state = mergeData(data);
           saveData(); renderPage(); toast('已导入数据');
         });
       }catch(err){
@@ -3669,9 +3885,58 @@ function bindSettings(){
     r.readAsText(f);
     e.target.value='';
   });
+  $('#excelExportBtn').addEventListener('click', exportExcel);
+  $('#csvExportBtn').addEventListener('click', ()=> exportCSV('clothes'));
+  $('#csvImportBtn').addEventListener('click', ()=> $('#csvImportFile').click());
+  $('#csvImportFile').addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => { importCSV(ev.target.result, 'clothes'); };
+    r.readAsText(f);
+    e.target.value='';
+  });
+  $('#templateBtn').addEventListener('click', downloadTemplate);
+  $('#backupNowBtn').addEventListener('click', async ()=>{
+    const bk = await createBackupSnapshot('manual');
+    if(bk){
+      toast('已创建备份快照');
+      renderBackupList();
+    }else{
+      toast('备份失败','err');
+    }
+  });
+  $('#backupDownloadBtn').addEventListener('click', ()=>{
+    downloadBackupFile(null);
+    toast('已下载备份文件（含日期时间戳）');
+  });
+  $('#restoreFileBtn').addEventListener('click', ()=> $('#restoreFile').click());
+  $('#restoreFile').addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try{
+        const data = JSON.parse(ev.target.result);
+        confirmAction('从备份恢复','将用备份文件数据<strong>覆盖当前所有数据</strong>，确认继续？',()=>{
+          state = mergeData(data);
+          saveData(); renderPage();
+          toast('已从备份文件恢复数据');
+        });
+      }catch(err){
+        toast('文件格式错误','err');
+      }
+    };
+    r.readAsText(f);
+    e.target.value='';
+  });
+  /* 初始渲染备份历史 */
+  renderBackupList();
+  /* 清空数据时同时清空 IndexedDB */
   $('#clearBtn').addEventListener('click', ()=>{
-    confirmAction('清空所有数据','此操作将删除<strong style="color:var(--c-red)">所有</strong>衣服、体子、便签、毛娘条目，且不可恢复！建议先导出备份。<br><br>确认清空吗？',()=>{
+    confirmAction('清空所有数据','此操作将删除<strong style="color:var(--c-red)">所有</strong>衣服、体子、便签、毛娘条目，且不可恢复！建议先导出备份。<br><br>确认清空吗？', async ()=>{
       try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+      try{ await idbSet(IDB_DATA, JSON.stringify(mergeData(defaultData))); }catch(e){}
       state = loadData();
       renderPage();
       toast('已清空数据');
@@ -3679,23 +3944,324 @@ function bindSettings(){
   });
 }
 
+/* ==== 备份历史列表渲染 ==== */
+async function renderBackupList(){
+  const el = document.getElementById('backupList');
+  if(!el) return;
+  const list = await getBackupList();
+  if(list.length === 0){
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--c-text-3);font-size:13px">暂无备份记录</div>';
+    return;
+  }
+  const reasonText = {open:'打开时自动', periodic:'定时自动', exit:'退出时自动', manual:'手动创建'};
+  el.innerHTML = list.slice(0, 10).map(bk=>{
+    const d = new Date(bk.timestamp);
+    const clothCount = (bk.data && bk.data.clothes) ? bk.data.clothes.length : 0;
+    const bodyCount = (bk.data && bk.data.bodies) ? bk.data.bodies.length : 0;
+    return `
+      <div class="backup-item">
+        <div class="bi-time">
+          <div class="bi-date">${d.toLocaleDateString()} ${d.toLocaleTimeString()}</div>
+          <div class="bi-sub">${reasonText[bk.reason]||bk.reason||'自动'} · ${clothCount}件衣服 · ${bodyCount}个体子 · ${formatBytes(bk.dataSize||0)}</div>
+        </div>
+        <div class="bi-actions">
+          <button class="bi-btn dl" data-bk-dl="${bk.id}">下载</button>
+          <button class="bi-btn" data-bk-rs="${bk.id}">恢复</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  /* 绑定按钮 */
+  el.querySelectorAll('[data-bk-dl]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const list = await getBackupList();
+      const bk = list.find(b=>b.id === btn.dataset.bkDl);
+      if(bk) downloadBackupFile(bk);
+    });
+  });
+  el.querySelectorAll('[data-bk-rs]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      confirmAction('恢复备份','将用此备份数据<strong>覆盖当前所有数据</strong>，确认继续？', async ()=>{
+        const ok = await restoreBackup(btn.dataset.bkRs);
+        if(ok) toast('已从备份恢复');
+        else toast('恢复失败','err');
+      });
+    });
+  });
+}
+
+/* ==== 一键导出 Excel（HTML 表格方式，Excel 可直接打开） ==== */
+function exportExcel(){
+  const d = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  
+  /* 衣服表 */
+  let clothesRows = '';
+  if(state.clothes && state.clothes.length){
+    clothesRows = state.clothes.map(c=>{
+      const cat = (state.categories||[]).find(x=>x.id===c.category);
+      return `<tr>
+        <td>${esc(c.name||'')}</td><td>${esc(cat?cat.name:'')}</td><td>${esc(c.size||'')}</td>
+        <td>${c.status==='shipped'?'已发货':'未发货'}</td>
+        <td style="text-align:right">${Number(c.deposit||0)}</td>
+        <td style="text-align:right">${Number(c.balance||0)}</td>
+        <td style="text-align:right">${Number(c.total||0)}</td>
+        <td>${c.paid?'已付清':'未付清'}</td><td>${esc(c.note||'')}</td>
+      </tr>`;
+    }).join('');
+  }else{
+    clothesRows = '<tr><td colspan="9" style="text-align:center;color:#999">暂无数据</td></tr>';
+  }
+  
+  /* 体子表 */
+  let bodyRows = '';
+  if(state.bodies && state.bodies.length){
+    bodyRows = state.bodies.map(b=>`<tr>
+      <td>${esc(b.name||'')}</td><td>${esc(b.size||'')}</td><td>${esc(b.height||'')}</td>
+      <td>${esc(b.head||'')}</td><td>${esc(b.neck||'')}</td><td>${esc(b.shoulder||'')}</td>
+      <td>${esc(b.chest||'')}</td><td>${esc(b.waist||'')}</td><td>${esc(b.hip||'')}</td>
+      <td>${esc(b.leg||'')}</td><td>${b.isMine?'自有':'可出'}</td><td>${esc(b.note||'')}</td>
+    </tr>`).join('');
+  }else{
+    bodyRows = '<tr><td colspan="12" style="text-align:center;color:#999">暂无数据</td></tr>';
+  }
+  
+  /* 毛娘工具表 */
+  let toolRows = '';
+  if(state.maoTools && state.maoTools.length){
+    toolRows = state.maoTools.map(t=>`<tr>
+      <td>${esc(t.name||'')}</td><td style="text-align:right">${Number(t.price||0)}</td>
+      <td>${t.sold?'已售':'在售'}</td><td>${esc(t.note||'')}</td>
+    </tr>`).join('');
+  }else{
+    toolRows = '<tr><td colspan="4" style="text-align:center;color:#999">暂无数据</td></tr>';
+  }
+  
+  /* 毛娘库存表 */
+  let stockRows = '';
+  if(state.maoStock && state.maoStock.length){
+    stockRows = state.maoStock.map(s=>`<tr>
+      <td>${esc(s.name||'')}</td><td>${esc(s.shop||'')}</td>
+      <td style="text-align:right">${Number(s.price||0)}</td><td style="text-align:right">${Number(s.qty||0)}</td>
+      <td style="text-align:right">${Number(s.total||0)}</td><td>${esc(s.note||'')}</td>
+    </tr>`).join('');
+  }else{
+    stockRows = '<tr><td colspan="6" style="text-align:center;color:#999">暂无数据</td></tr>';
+  }
+  
+  /* 毛娘收入表 */
+  let incomeRows = '';
+  if(state.maoIncome && state.maoIncome.length){
+    incomeRows = state.maoIncome.map(i=>`<tr>
+      <td>${esc(i.name||'')}</td><td style="text-align:right">${Number(i.price||0)}</td><td>${esc(i.note||'')}</td>
+    </tr>`).join('');
+  }else{
+    incomeRows = '<tr><td colspan="3" style="text-align:center;color:#999">暂无数据</td></tr>';
+  }
+  
+  /* 毛娘客户表 */
+  let clientRows = '';
+  if(state.maoClients && state.maoClients.length){
+    clientRows = state.maoClients.map(c=>`<tr>
+      <td>${esc(c.name||'')}</td><td>${esc(c.platform||'')}</td>
+      <td style="text-align:right">${Number(c.price||0)}</td><td>${esc(c.require||'')}</td>
+      <td>${c.done?'已完成':'未完成'}</td>
+    </tr>`).join('');
+  }else{
+    clientRows = '<tr><td colspan="5" style="text-align:center;color:#999">暂无数据</td></tr>';
+  }
+  
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8"><style>td,th{border:1px solid #ccc;padding:6px 10px;font-size:12px}th{background:#427EA4;color:#fff}table{border-collapse:collapse}h2{color:#427EA4}</style></head>
+<body>
+<h2>SuJiu的娃柜 - 全部数据导出 (${d.toLocaleString()})</h2>
+
+<h3>衣服管理</h3>
+<table>
+<tr><th>名称</th><th>分类</th><th>尺寸</th><th>状态</th><th>定金</th><th>尾款</th><th>总价</th><th>付款</th><th>备注</th></tr>
+${clothesRows}
+</table>
+
+<h3>体子尺寸</h3>
+<table>
+<tr><th>名称</th><th>尺寸</th><th>身高</th><th>头围</th><th>颈围</th><th>肩宽</th><th>胸围</th><th>腰围</th><th>臀围</th><th>腿长</th><th>归属</th><th>备注</th></tr>
+${bodyRows}
+</table>
+
+<h3>毛娘-工具</h3>
+<table>
+<tr><th>名称</th><th>价格</th><th>状态</th><th>备注</th></tr>
+${toolRows}
+</table>
+
+<h3>毛娘-库存</h3>
+<table>
+<tr><th>名称</th><th>来源店铺</th><th>单价</th><th>数量</th><th>总价</th><th>备注</th></tr>
+${stockRows}
+</table>
+
+<h3>毛娘-收入</h3>
+<table>
+<tr><th>名称</th><th>价格</th><th>备注</th></tr>
+${incomeRows}
+</table>
+
+<h3>毛娘-客户</h3>
+<table>
+<tr><th>客户名</th><th>平台</th><th>价格</th><th>需求</th><th>状态</th></tr>
+${clientRows}
+</table>
+</body></html>`;
+  
+  const blob = new Blob(['\ufeff' + html], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `娃柜全部数据_${stamp}.xls`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('已导出 Excel 文件');
+}
+
+/* ==== CSV 导出（衣服数据，方便用 Excel/WPS 打开编辑） ==== */
+function exportCSV(type){
+  let csv = '', filename = '';
+  if(type === 'clothes'){
+    csv = '名称,分类,尺寸,状态,定金,尾款,总价,付款,备注\n';
+    (state.clothes||[]).forEach(c=>{
+      const cat = (state.categories||[]).find(x=>x.id===c.category);
+      const row = [
+        csvEscape(c.name), csvEscape(cat?cat.name:''), csvEscape(c.size),
+        c.status==='shipped'?'已发货':'未发货',
+        Number(c.deposit||0), Number(c.balance||0), Number(c.total||0),
+        c.paid?'已付清':'未付清', csvEscape(c.note)
+      ].join(',');
+      csv += row + '\n';
+    });
+    filename = '衣服数据';
+  }
+  const d = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}_${stamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('已导出 CSV 文件');
+}
+function csvEscape(s){
+  if(s==null) s='';
+  s = String(s);
+  if(s.indexOf(',')>=0 || s.indexOf('"')>=0 || s.indexOf('\n')>=0){
+    return '"' + s.replace(/"/g,'""') + '"';
+  }
+  return s;
+}
+
+/* ==== CSV 导入（衣服数据，合并到现有数据） ==== */
+function importCSV(text, type){
+  try{
+    const lines = text.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length < 2){ toast('CSV 文件没有数据行','err'); return; }
+    const headers = parseCSVLine(lines[0]);
+    if(type === 'clothes'){
+      let added = 0;
+      for(let i=1; i<lines.length; i++){
+        const cols = parseCSVLine(lines[i]);
+        const name = cols[0] || '';
+        if(!name) continue;
+        const catName = cols[1] || '';
+        const cat = (state.categories||[]).find(c=>c.name===catName) || state.categories[0];
+        const status = cols[3] === '已发货' ? 'shipped' : 'not_shipped';
+        state.clothes.push({
+          id: uid(),
+          name: name,
+          category: cat ? cat.id : '',
+          size: cols[2] || '',
+          status: status,
+          deposit: Number(cols[4]) || 0,
+          balance: Number(cols[5]) || 0,
+          total: Number(cols[6]) || 0,
+          paid: cols[7] === '已付清',
+          image: '',
+          note: cols[8] || '',
+          createdAt: Date.now()
+        });
+        added++;
+      }
+      saveData();
+      renderPage();
+      toast(`已导入 ${added} 条衣服数据`);
+    }
+  }catch(e){
+    toast('CSV 解析失败：' + String(e.message||e),'err');
+  }
+}
+function parseCSVLine(line){
+  const result = [];
+  let cur = '', inQuote = false;
+  for(let i=0; i<line.length; i++){
+    const ch = line[i];
+    if(ch === '"'){
+      if(inQuote && line[i+1] === '"'){ cur += '"'; i++; }
+      else{ inQuote = !inQuote; }
+    }else if(ch === ',' && !inQuote){
+      result.push(cur); cur = '';
+    }else{
+      cur += ch;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+/* ==== 模板下载（CSV 模板，用户填入数据后用 CSV 导入） ==== */
+function downloadTemplate(){
+  const csv = '名称,分类,尺寸,状态,定金,尾款,总价,付款,备注\n' +
+    '示例：蕾丝睡裙,裙子,1/4,已发货,200,600,800,已付清,备注内容\n' +
+    '示例：JK水手服,上衣,1/3,未发货,150,350,500,未付清,需要补尾款\n' +
+    '（请删除示例行后填入真实数据，分类需与系统分类一致：裙子/上衣/外套/裤子/鞋子/眼珠/假发/配件/古风全套）\n';
+  const blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '娃柜数据模板.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('已下载模板文件');
+}
+
 function exportData(){
   const data = JSON.stringify(state, null, 2);
   const blob = new Blob([data], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
+  const d = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
   a.href = url;
-  a.download = `娃柜备份_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `娃柜备份_${stamp}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  toast('已导出备份');
+  toast('已导出备份（文件名含日期时间戳）');
 }
 
-/* ================= Bootstrap ================= */
-updateBrand();
-renderPage();
+/* ================= Bootstrap：先从 IndexedDB 加载数据，再渲染 ================= */
+__restoreReady.then(()=>{
+  updateBrand();
+  renderPage();
+  updateStorageUsage();
+});
+/* 兜底：如果 IndexedDB 恢复异常导致一直未渲染，1.5 秒后强制渲染默认数据 */
+setTimeout(()=>{
+  updateBrand();
+  renderPage();
+  updateStorageUsage();
+}, 1500);
 </script>
-</body>
-</html>
 </body>
 </html>
