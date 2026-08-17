@@ -3283,10 +3283,15 @@ function renderSettings(){
     </div>
 
     <div class="setting-section">
-      <h3>💾 本地保存（自动）</h3>
+      <h3>💾 本地保存</h3>
       <div style="font-size:13px;margin-bottom:10px" id="localSaveLine"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-primary" id="manualSaveBtn" style="padding:8px 16px;min-height:38px;font-size:13px">💾 手动保存到本机</button>
+        <button class="btn btn-outline" id="manualReloadBtn" style="padding:8px 16px;min-height:38px;font-size:13px">📂 从本机重新读取</button>
+      </div>
       <div style="font-size:12px;color:var(--c-text-3);line-height:1.8">
-        每次修改都会<b>立即自动保存</b>到本机，无需手动保存；下次打开自动读取历史数据。<br>
+        每次修改都会<b>立即自动保存</b>到本机；也可点击「手动保存」按钮立即存档。<br>
+        下次打开页面会<b>自动读取</b>上次保存的历史数据，无需任何操作。<br>
         数据采用 localStorage + IndexedDB <b>双层本地存储</b>：即使浏览器清理了其中一层，打开时会自动从另一层恢复。<br>
         退到后台或关闭页面前也会自动再保存一次，确保不丢失。
       </div>
@@ -3359,6 +3364,20 @@ function renderSettings(){
   `;
 }
 function bindSettings(){
+  /* 本地保存 */
+  $('#manualSaveBtn').addEventListener('click', async ()=>{
+    saveData();
+    await backupToLocal();
+    toast('已手动保存到本机 · ' + new Date().toLocaleTimeString());
+  });
+  $('#manualReloadBtn').addEventListener('click', ()=>{
+    confirmAction('从本机重新读取', '将从本机存储重新加载数据，<strong>当前未保存的修改会丢失</strong>。确认继续？', ()=>{
+      const fresh = loadData();
+      state = fresh;
+      renderPage();
+      toast('已从本机重新读取历史数据');
+    });
+  });
   /* 云端同步 */
   const scfg = getSyncCfg();
   $('#syncRepo').value = (scfg && scfg.repo) || GH_DEFAULTS.repo;
