@@ -1144,7 +1144,7 @@ function updateLocalSaveLine(){
 
 /* ==== 云端同步模块（GitHub API，多设备数据同步；数据存于仓库 data.json） ==== */
 const SYNC_CFG_KEY = 'wb_sync_cfg_v2';
-const GH_DEFAULTS = { repo:'Sujiu489/wanwa-riji', branch:'main', file:'data.json' };
+const GH_DEFAULTS = { repo:'Sujiu489/-玩娃日记', branch:'main', file:'data.json' };
 const syncState = { connected:false, busy:false, lastSyncAt:null, lastError:'' };
 function getSyncCfg(){
   try{ const r = localStorage.getItem(SYNC_CFG_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; }
@@ -1158,6 +1158,8 @@ function setSyncCfg(cfg){
 }
 function utf8ToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function b64ToUtf8(b64){ return decodeURIComponent(escape(atob(String(b64).replace(/\s/g,'')))); }
+/* 仓库名 URL 编码：支持中文等非 ASCII 字符（如 Sujiu489/-玩娃日记） */
+function encRepo(repo){ return (repo||'').split('/').map(encodeURIComponent).join('/'); }
 function ghApi(cfg, path, opts){
   opts = opts || {};
   const headers = {
@@ -1179,16 +1181,16 @@ function ghApi(cfg, path, opts){
 }
 /* 读取分支最新 commit 与根 tree */
 async function ghReadHead(cfg){
-  const ref = await ghApi(cfg, '/repos/'+cfg.repo+'/git/ref/heads/'+encodeURIComponent(cfg.branch));
-  const commit = await ghApi(cfg, '/repos/'+cfg.repo+'/git/commits/'+ref.object.sha);
+  const ref = await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/ref/heads/'+encodeURIComponent(cfg.branch));
+  const commit = await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/commits/'+ref.object.sha);
   return { commitSha: ref.object.sha, treeSha: commit.tree.sha };
 }
 async function ghPullWith(cfg){
   const head = await ghReadHead(cfg);
-  const tree = await ghApi(cfg, '/repos/'+cfg.repo+'/git/trees/'+head.treeSha);
+  const tree = await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/trees/'+head.treeSha);
   const entry = (tree.tree||[]).find(t=>t.path===cfg.file);
   if(!entry) return null;
-  const blob = await ghApi(cfg, '/repos/'+cfg.repo+'/git/blobs/'+entry.sha);
+  const blob = await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/blobs/'+entry.sha);
   const payload = JSON.parse(b64ToUtf8(blob.content));
   return { updated_at: payload.updated_at, data: payload.data };
 }
@@ -1198,10 +1200,10 @@ async function ghPush(){
     try{
       const head = await ghReadHead(cfg);
       const payload = { updated_at: new Date().toISOString(), data: state };
-      const blob = await ghApi(cfg, '/repos/'+cfg.repo+'/git/blobs', { method:'POST', body:{ content: utf8ToB64(JSON.stringify(payload)), encoding:'base64' } });
-      const tree = await ghApi(cfg, '/repos/'+cfg.repo+'/git/trees', { method:'POST', body:{ base_tree: head.treeSha, tree:[{ path: cfg.file, mode:'100644', type:'blob', sha: blob.sha }] } });
-      const commit = await ghApi(cfg, '/repos/'+cfg.repo+'/git/commits', { method:'POST', body:{ message:'cloud-sync: update workspace data', tree: tree.sha, parents:[ head.commitSha ] } });
-      await ghApi(cfg, '/repos/'+cfg.repo+'/git/refs/heads/'+encodeURIComponent(cfg.branch), { method:'PATCH', body:{ sha: commit.sha, force:false } });
+      const blob = await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/blobs', { method:'POST', body:{ content: utf8ToB64(JSON.stringify(payload)), encoding:'base64' } });
+      const tree = await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/trees', { method:'POST', body:{ base_tree: head.treeSha, tree:[{ path: cfg.file, mode:'100644', type:'blob', sha: blob.sha }] } });
+      const commit = await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/commits', { method:'POST', body:{ message:'cloud-sync: update workspace data', tree: tree.sha, parents:[ head.commitSha ] } });
+      await ghApi(cfg, '/repos/'+encRepo(cfg.repo)+'/git/refs/heads/'+encodeURIComponent(cfg.branch), { method:'PATCH', body:{ sha: commit.sha, force:false } });
       syncState.lastSyncAt = Date.now(); syncState.lastError = '';
       updateSyncBadge();
       return true;
@@ -1228,11 +1230,11 @@ async function syncConnect(cfg, opts){
   opts = opts||{};
   cfg = Object.assign({}, GH_DEFAULTS, cfg||{});
   if(!cfg.token){ toast('请填写 GitHub 访问令牌','err'); return false; }
-  if(!/^[\w.-]+\/[\w.-]+$/.test(cfg.repo||'')){ toast('请填写仓库（格式：用户名/仓库名）','err'); return false; }
+  if(!/^[^/]+\/[^/]+$/.test(cfg.repo||'')){ toast('请填写仓库（格式：用户名/仓库名）','err'); return false; }
   syncState.busy = true; updateSyncBadge();
   try{
     /* 先验证令牌与仓库 */
-    try{ await ghApi(cfg, '/repos/'+cfg.repo); }
+    try{ await ghApi(cfg, '/repos/'+encRepo(cfg.repo)); }
     catch(e){
       const st = e.status;
       let hint = '';
@@ -1347,7 +1349,7 @@ function openSyncModal(){
       <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">已连接时，每次修改都会自动保存并同步到云端（约 6 秒内推送到您的 GitHub 仓库），换设备打开后自动拉取最新数据。</div>
     ` : `
       <div class="sync-form-row"><label>GitHub 访问令牌（Token）</label><input id="smToken" type="password" placeholder="ghp_...（github.com/settings/tokens 生成，勾选 repo 权限）" autocomplete="off" spellcheck="false"></div>
-      <div class="sync-form-row"><label>数据仓库（用户名/仓库名）</label><input id="smRepo" placeholder="如：Sujiu489/wanwa-riji" value="${esc(cfg.repo||GH_DEFAULTS.repo)}" autocomplete="off" spellcheck="false"></div>
+      <div class="sync-form-row"><label>数据仓库（用户名/仓库名）</label><input id="smRepo" placeholder="如：Sujiu489/-玩娃日记" value="${esc(cfg.repo||GH_DEFAULTS.repo)}" autocomplete="off" spellcheck="false"></div>
       <div class="sync-form-row"><label>分支</label><input id="smBranch" placeholder="main" value="${esc(cfg.branch||GH_DEFAULTS.branch)}" autocomplete="off" spellcheck="false"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn btn-primary" id="smConnect" style="padding:10px 16px;min-height:44px;font-size:14px">连接云端</button>
@@ -3299,7 +3301,7 @@ function renderSettings(){
       </div>
       <div class="sync-form-row">
         <label>数据仓库（用户名/仓库名）</label>
-        <input id="syncRepo" placeholder="如：Sujiu489/wanwa-riji" autocomplete="off" spellcheck="false">
+        <input id="syncRepo" placeholder="如：Sujiu489/-玩娃日记" autocomplete="off" spellcheck="false">
       </div>
       <div class="sync-form-row">
         <label>分支</label>
