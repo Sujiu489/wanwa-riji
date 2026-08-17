@@ -1201,7 +1201,7 @@ async function ghPush(){
       const blob = await ghApi(cfg, '/repos/'+cfg.repo+'/git/blobs', { method:'POST', body:{ content: utf8ToB64(JSON.stringify(payload)), encoding:'base64' } });
       const tree = await ghApi(cfg, '/repos/'+cfg.repo+'/git/trees', { method:'POST', body:{ base_tree: head.treeSha, tree:[{ path: cfg.file, mode:'100644', type:'blob', sha: blob.sha }] } });
       const commit = await ghApi(cfg, '/repos/'+cfg.repo+'/git/commits', { method:'POST', body:{ message:'cloud-sync: update workspace data', tree: tree.sha, parents:[ head.commitSha ] } });
-      await ghApi(cfg, '/repos/'+cfg.repo+'/git/ref/heads/'+encodeURIComponent(cfg.branch), { method:'PATCH', body:{ sha: commit.sha, force:false } });
+      await ghApi(cfg, '/repos/'+cfg.repo+'/git/refs/heads/'+encodeURIComponent(cfg.branch), { method:'PATCH', body:{ sha: commit.sha, force:false } });
       syncState.lastSyncAt = Date.now(); syncState.lastError = '';
       updateSyncBadge();
       return true;
