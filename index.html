@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#AFDBE6">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="娃柜">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="SuJiu的娃柜">
 <title>SuJiu的娃柜</title>
 <script>
 /* PWA 应用化：动态注入 manifest（图标为内联 SVG，无外部依赖） */
@@ -27,7 +29,7 @@
     short_name: '娃柜',
     start_url: location.pathname + location.search,
     scope: location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1),
-    display: 'standalone',
+    display: 'fullscreen',
     background_color: '#F4F9FB',
     theme_color: '#AFDBE6',
     icons: [{ src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }]
@@ -64,6 +66,13 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--c-bg);color:var(--c-text);font-size:14px;-webkit-font-smoothing:antialiased}
 body{overscroll-behavior:none}
+/* PWA 安装引导提示 */
+.install-prompt{position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,var(--c-blue),var(--c-dark));color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;transform:translateY(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1);box-shadow:0 4px 14px -4px rgba(28,67,102,.25)}
+.install-prompt.show{transform:translateY(0)}
+.install-prompt .ip-text{flex:1;line-height:1.5}
+.install-prompt .ip-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;padding:6px 14px;border-radius:10px;font-size:13px;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.install-prompt .ip-close{color:rgba(255,255,255,.65);padding:4px;font-size:18px;line-height:1}
+.install-prompt .ip-close:active{opacity:.7}
 button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit;transition:all var(--tr-soft)}
 input,textarea,select{font-family:inherit;border:none;outline:none;background:none;color:inherit;font-size:15px}
 input[type=number]{-moz-appearance:textfield}
@@ -75,7 +84,7 @@ img{display:block;max-width:100%}
   width:78px;background:linear-gradient(180deg,#FAFCFD 0%,#EAF3F7 100%);
   border-right:1px dashed var(--c-line);
   display:flex;flex-direction:column;align-items:center;
-  padding:18px 0 80px;position:fixed;top:0;left:0;bottom:0;z-index:50;
+  padding:18px 0 80px;padding-top:max(18px, env(safe-area-inset-top));position:fixed;top:0;left:0;bottom:0;z-index:50;
   transition:transform var(--tr-soft);
 }
 .brand{
@@ -118,7 +127,8 @@ img{display:block;max-width:100%}
   display:none;position:sticky;top:0;z-index:30;
   background:rgba(244,249,251,.95);backdrop-filter:blur(10px);
   border-bottom:1px dashed var(--c-line);
-  padding:12px 16px;align-items:center;gap:12px;
+  padding:12px 16px;padding-top:max(12px, env(safe-area-inset-top));
+  align-items:center;gap:12px;
 }
 .mobile-header .menu-btn{
   width:40px;height:40px;display:flex;align-items:center;justify-content:center;
@@ -1846,6 +1856,42 @@ const navItems = $$('.nav-item', sidebar);
 const pageEl = document.getElementById('pageHome');
 let currentPage = 'home';
 
+/* ================= PWA 全屏检测 & 安装引导 ================= */
+function checkPWA(){
+  const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches;
+  if(isStandalone) return; /* 已在全屏/PWA 模式下运行，无需提示 */
+  if(lsGet('pwa_prompt_dismissed')) return; /* 用户已关闭提示 */
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const ua = navigator.userAgent.toLowerCase();
+  const isSafari = isIOS && /safari/.test(ua) && !/crios|fxios/.test(ua);
+  const isChrome = /chrome/.test(ua) && !/edg|opr|opera/.test(ua);
+  let msg = '';
+  if(isIOS || isSafari){
+    msg = '底部地址栏遮挡画面？点击 Safari 底部 <b>分享按钮 ↑</b>，选择「添加到主屏幕」，即可全屏打开无地址栏。';
+  } else if(isChrome){
+    msg = '底部地址栏遮挡画面？点击 Chrome 右上角 ⋮ 菜单，选择「添加到主屏幕」，即可全屏打开无地址栏。';
+  } else {
+    msg = '底部地址栏遮挡画面？请在浏览器菜单中找到「添加到主屏幕」或「安装应用」，即可全屏打开无地址栏。';
+  }
+  const banner = document.createElement('div');
+  banner.className = 'install-prompt';
+  banner.innerHTML = '<div class="ip-text">' + msg + '</div><button class="ip-btn" id="ipInstall">知道了</button><button class="ip-close" id="ipClose">×</button>';
+  document.body.appendChild(banner);
+  requestAnimationFrame(()=> banner.classList.add('show'));
+  banner.querySelector('#ipClose').addEventListener('click', ()=>{
+    banner.classList.remove('show');
+    setTimeout(()=> banner.remove(), 400);
+    lsSet('pwa_prompt_dismissed', '1');
+  });
+  banner.querySelector('#ipInstall').addEventListener('click', ()=>{
+    banner.classList.remove('show');
+    setTimeout(()=> banner.remove(), 400);
+    lsSet('pwa_prompt_dismissed', '1');
+  });
+}
+setTimeout(checkPWA, 1200); /* 延迟 1.2 秒弹出，避免干扰首屏加载 */
+
+/* ================= Navigation ================= */
 document.getElementById('menuBtn').addEventListener('click', ()=>{
   sidebar.classList.toggle('open');
   scrim.classList.toggle('show');
