@@ -1144,7 +1144,7 @@ function updateLocalSaveLine(){
 
 /* ==== 云端同步模块（GitHub API，多设备数据同步；数据存于仓库 data.json） ==== */
 const SYNC_CFG_KEY = 'wb_sync_cfg_v2';
-const GH_DEFAULTS = { repo:'Sujiu489/-玩娃日记', branch:'main', file:'data.json' };
+const GH_DEFAULTS = { repo:'Sujiu489/wanwa-riji', branch:'main', file:'data.json' };
 const syncState = { connected:false, busy:false, lastSyncAt:null, lastError:'' };
 function getSyncCfg(){
   try{ const r = localStorage.getItem(SYNC_CFG_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; }
@@ -1349,7 +1349,7 @@ function openSyncModal(){
       <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">已连接时，每次修改都会自动保存并同步到云端（约 6 秒内推送到您的 GitHub 仓库），换设备打开后自动拉取最新数据。</div>
     ` : `
       <div class="sync-form-row"><label>GitHub 访问令牌（Token）</label><input id="smToken" type="password" placeholder="ghp_...（github.com/settings/tokens 生成，勾选 repo 权限）" autocomplete="off" spellcheck="false"></div>
-      <div class="sync-form-row"><label>数据仓库（用户名/仓库名）</label><input id="smRepo" placeholder="如：Sujiu489/-玩娃日记" value="${esc(cfg.repo||GH_DEFAULTS.repo)}" autocomplete="off" spellcheck="false"></div>
+      <div class="sync-form-row"><label>数据仓库（用户名/仓库名）</label><input id="smRepo" placeholder="如：Sujiu489/wanwa-riji" value="${esc(cfg.repo||GH_DEFAULTS.repo)}" autocomplete="off" spellcheck="false"></div>
       <div class="sync-form-row"><label>分支</label><input id="smBranch" placeholder="main" value="${esc(cfg.branch||GH_DEFAULTS.branch)}" autocomplete="off" spellcheck="false"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn btn-primary" id="smConnect" style="padding:10px 16px;min-height:44px;font-size:14px">连接云端</button>
@@ -3301,7 +3301,7 @@ function renderSettings(){
       </div>
       <div class="sync-form-row">
         <label>数据仓库（用户名/仓库名）</label>
-        <input id="syncRepo" placeholder="如：Sujiu489/-玩娃日记" autocomplete="off" spellcheck="false">
+        <input id="syncRepo" placeholder="如：Sujiu489/wanwa-riji" autocomplete="off" spellcheck="false">
       </div>
       <div class="sync-form-row">
         <label>分支</label>
