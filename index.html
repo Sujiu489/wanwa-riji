@@ -1451,10 +1451,10 @@ function loadData(){
 }
 /* 自动保存：本机立即双层落盘（localStorage + IndexedDB）+ 记录保存时间 + 防抖推送到云端 */
 let __saveBadgeTimer = null;
-function showSaveBadge(ok){
+function showSaveBadge(ok, label){
   const badge = document.getElementById('saveBadge');
   if(!badge) return;
-  badge.textContent = ok ? '💾 已保存' : '⚠ 保存失败';
+  badge.textContent = label || (ok ? '💾 已保存' : '⚠ 保存失败');
   badge.style.background = ok ? 'rgba(58,110,88,0.95)' : 'rgba(232,90,111,0.95)';
   badge.style.opacity = '1';
   badge.style.transform = 'translateY(0)';
@@ -1462,17 +1462,26 @@ function showSaveBadge(ok){
   __saveBadgeTimer = setTimeout(()=>{
     badge.style.opacity = '0';
     badge.style.transform = 'translateY(10px)';
-  }, 1200);
+  }, 1500);
 }
 function saveData(){
-  state._savedAt = Date.now(); /* 在数据内部嵌入时间戳，用于跨存储层对比新旧 */
+  state._savedAt = Date.now();
   const json = JSON.stringify(state);
-  const ok = lsSetVerified(json);
-  if(ok) lsSet('wb_saved_at', String(state._savedAt));
-  __lastSavePromise = backupToLocal(); /* 保存 Promise 引用，供 flushLocal 等待 */
+  const lsOk = lsSetVerified(json);
+  if(lsOk) lsSet('wb_saved_at', String(state._savedAt));
+  __lastSavePromise = backupToLocal();
   scheduleSyncPush();
   updateLocalSaveLine();
-  showSaveBadge(ok); /* 显示保存状态指示器 */
+  /* 指示器逻辑：LS 成功→立刻绿；LS 失败→等 IDB 结果，IDB 成功也绿，两层都失败才红 */
+  if(lsOk){
+    showSaveBadge(true);
+  }else{
+    showSaveBadge(true, '⏳ 正在保存…');
+    __lastSavePromise.then(idbOk=>{
+      if(idbOk) showSaveBadge(true, '💾 已保存');
+      else showSaveBadge(false);
+    });
+  }
 }
 /* 强制保存（async）：手动保存按钮使用，确保 IndexedDB 写入完成后才返回，并验证两层存储 */
 async function forceSave(){
@@ -1484,6 +1493,7 @@ async function forceSave(){
   __lastSavePromise = Promise.resolve();
   scheduleSyncPush();
   updateLocalSaveLine();
+  showSaveBadge(lsOk || idbOk, lsOk ? '💾 已保存' : (idbOk ? '💾 已保存(备份)' : '⚠ 保存失败'));
   return { lsOk, idbOk };
 }
 let __lastSavePromise = Promise.resolve();
@@ -1522,7 +1532,7 @@ function fmtShort(n){
   if(n>=1000) return '¥'+n.toFixed(0);
   return '¥'+n.toFixed(0);
 }
-function fileToBase64(file, maxW=800){
+function fileToBase64(file, maxW=500){
   return new Promise((resolve)=>{
     if(!file) return resolve('');
     const r = new FileReader();
@@ -1535,9 +1545,9 @@ function fileToBase64(file, maxW=800){
         const c = document.createElement('canvas');
         c.width = w; c.height = h;
         const ctx = c.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h); /* PNG 透明底转 JPEG 不变黑 */
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
         ctx.drawImage(img,0,0,w,h);
-        resolve(c.toDataURL('image/jpeg', .82));
+        resolve(c.toDataURL('image/jpeg', .65));
       };
       img.onerror = ()=>resolve('');
       img.src = e.target.result;
@@ -3460,7 +3470,7 @@ function renderSettings(){
         </div>
         <div>🎨 配色：粉青 · 粉黛 · 灰月 · 沙青 · 烟凝</div>
         <div>🔒 隐私：默认仅存本机；连接云端同步后保存在您自己的 GitHub 仓库</div>
-        <div style="margin-top:8px;color:var(--c-text-3)">v1.1 · 保存诊断增强版 · 由 WorkBuddy 小台搭建</div>
+        <div style="margin-top:8px;color:var(--c-text-3)">v1.2 · 双层存储修复版 · 由 WorkBuddy 小台搭建</div>
       </div>
     </div>
   `;
@@ -3474,6 +3484,7 @@ function bindSettings(){
     const resultBox = $('#saveResultBox');
     try{
       await requestPersistentStorage();
+      state._savedAt = Date.now();
       /* 1. 写入 localStorage 并验证 */
       const json = JSON.stringify(state);
       let lsWriteOk = false;
@@ -3488,7 +3499,7 @@ function bindSettings(){
       let idbWriteOk = false;
       try{
         await idbSet(IDB_DATA, json);
-        await idbSet(IDB_AT, Date.now());
+        await idbSet(IDB_AT, state._savedAt || Date.now());
         const verify = await idbGet(IDB_DATA);
         idbWriteOk = (verify === json);
       }catch(e){ idbWriteOk = false; }
