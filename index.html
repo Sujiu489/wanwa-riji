@@ -3446,7 +3446,10 @@ function openNoteModal(existing){
 /* ============= Mao ============= */
 function renderMao(){
   const toolsSum = state.maoTools.reduce((s,t)=>s+Number(t.price||0),0);
+  /* 库存合计：含数量为 0 的条目与已清零移除的累计金额，保证合计金额不受移除影响 */
   const stockSum = state.maoStock.reduce((s,t)=>s+Number(t.total!=null?t.total:(Number(t.price||0)*Number(t.qty||0))),0) + Number(state.maoStockCleared||0);
+  /* 库存展示：数量为 0 的卡片一律隐藏 */
+  const stockVisible = state.maoStock.filter(it=>(it.qty||0)>0);
   const incomeSum = state.maoIncome.reduce((s,t)=>s+Number(t.price||0),0);
   const clientSum = state.maoClients.reduce((s,t)=>s+Number(t.price||0),0);
   return `
@@ -3455,7 +3458,7 @@ function renderMao(){
     </div>
 
     ${maoSection('tools','工具', svgIcon('settings',16), state.maoTools, toolsSum, (id)=>openMaoModal('tools',id), 'tool')}
-    ${maoSection('stock','库存', svgIcon('list',16), state.maoStock, stockSum, (id)=>openMaoModal('stock',id), 'stock')}
+    ${maoSection('stock','库存', svgIcon('list',16), stockVisible, stockSum, (id)=>openMaoModal('stock',id), 'stock')}
     ${maoSection('income','收入', svgIcon('wallet',16), state.maoIncome, incomeSum, (id)=>openMaoModal('income',id), 'income')}
     ${maoSection('clients','单主', svgIcon('mao',16), state.maoClients, clientSum, (id)=>openMaoModal('clients',id), 'client')}
   `;
