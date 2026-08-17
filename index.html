@@ -1087,6 +1087,25 @@ function storageOK(){
   try{ localStorage.setItem('__wb_probe__','1'); localStorage.removeItem('__wb_probe__'); return true; }
   catch(e){ return false; }
 }
+/* 写入 localStorage 后立即读回验证，防止静默失败（手机浏览器常见） */
+function lsSetVerified(v){
+  try{
+    localStorage.setItem(STORE_KEY, v);
+    const readback = localStorage.getItem(STORE_KEY);
+    return readback === v;
+  }catch(e){ return false; }
+}
+/* 请求持久化存储权限：防止手机浏览器在存储压力下自动清理数据 */
+async function requestPersistentStorage(){
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      const already = await navigator.storage.persisted();
+      if(already) return true;
+      return await navigator.storage.persist();
+    }
+  }catch(e){}
+  return false;
+}
 
 /* ==== IndexedDB 本地备份层：与 localStorage 双写，即使系统清理其中一层也能恢复 ==== */
 const IDB_DATA = 'data', IDB_AT = 'saved_at', IDB_CFG = 'sync_cfg';
@@ -1127,19 +1146,24 @@ async function idbGet(k){
     });
   }catch(e){ return null; }
 }
-/* 每次保存时同步写一份到 IndexedDB（异步、不阻塞） */
+/* 每次保存时同步写一份到 IndexedDB（异步、不阻塞），返回是否成功 */
 async function backupToLocal(){
-  await idbSet(IDB_DATA, JSON.stringify(state));
-  await idbSet(IDB_AT, Date.now());
+  const r1 = await idbSet(IDB_DATA, JSON.stringify(state));
+  const r2 = await idbSet(IDB_AT, Date.now());
+  return r1 && r2;
 }
 /* 设置页「本地保存」状态行 */
 function updateLocalSaveLine(){
   const el = document.getElementById('localSaveLine');
   if(!el) return;
   const t = Number(lsGet('wb_saved_at')||0);
-  el.innerHTML = t
-    ? '<span style="color:#3A6E58">✓ 已自动保存 · ' + new Date(t).toLocaleString() + '</span>'
-    : '<span style="color:var(--c-text-3)">尚未保存</span>';
+  const lsWorking = storageOK();
+  const timeStr = t ? new Date(t).toLocaleString() : '尚未保存';
+  let html = '<span style="color:#3A6E58">✓ 最近保存：' + timeStr + '</span>';
+  if(!lsWorking){
+    html += '<br><span style="color:var(--c-red)">⚠ 浏览器不支持 localStorage，数据仅存于 IndexedDB 备份层</span>';
+  }
+  el.innerHTML = html;
 }
 
 /* ==== 云端同步模块（GitHub API，多设备数据同步；数据存于仓库 data.json） ==== */
@@ -1418,11 +1442,22 @@ function loadData(){
 }
 function saveData(){
   /* 自动保存：本机立即双层落盘（localStorage + IndexedDB）+ 记录保存时间 + 防抖推送到云端 */
-  const ok = lsSet(STORE_KEY, JSON.stringify(state));
+  const json = JSON.stringify(state);
+  const ok = lsSetVerified(json);
   if(ok) lsSet('wb_saved_at', String(Date.now()));
-  backupToLocal();
+  backupToLocal(); /* 异步写 IndexedDB 备份层 */
   scheduleSyncPush();
   updateLocalSaveLine();
+}
+/* 强制保存（async）：手动保存按钮使用，确保 IndexedDB 写入完成后才返回，并验证两层存储 */
+async function forceSave(){
+  const json = JSON.stringify(state);
+  const lsOk = lsSetVerified(json);
+  if(lsOk) lsSet('wb_saved_at', String(Date.now()));
+  const idbOk = await backupToLocal();
+  scheduleSyncPush();
+  updateLocalSaveLine();
+  return { lsOk, idbOk };
 }
 let state = loadData();
 
@@ -1618,9 +1653,11 @@ async function localRestore(){
   }
 }
 localRestore();
+/* 启动时请求持久化存储权限（防止手机浏览器自动清理数据） */
+requestPersistentStorage();
 /* 退后台 / 关闭页面前：本地双层落盘（+ 已连接云端时强推） */
 function flushLocal(){
-  try{ lsSet(STORE_KEY, JSON.stringify(state)); }catch(e){}
+  try{ lsSetVerified(JSON.stringify(state)); }catch(e){}
   backupToLocal();
 }
 document.addEventListener('visibilitychange', ()=>{
@@ -3290,10 +3327,10 @@ function renderSettings(){
         <button class="btn btn-outline" id="manualReloadBtn" style="padding:8px 16px;min-height:38px;font-size:13px">📂 从本机重新读取</button>
       </div>
       <div style="font-size:12px;color:var(--c-text-3);line-height:1.8">
-        每次修改都会<b>立即自动保存</b>到本机；也可点击「手动保存」按钮立即存档。<br>
-        下次打开页面会<b>自动读取</b>上次保存的历史数据，无需任何操作。<br>
-        数据采用 localStorage + IndexedDB <b>双层本地存储</b>：即使浏览器清理了其中一层，打开时会自动从另一层恢复。<br>
-        退到后台或关闭页面前也会自动再保存一次，确保不丢失。
+        点击「手动保存到本机」可<b>立即存档</b>当前所有数据，保存后会显示确认提示。<br>
+        每次修改也会<b>自动保存</b>；下次打开页面会<b>自动读取</b>上次保存的历史数据。<br>
+        数据采用 localStorage + IndexedDB <b>双层本地存储</b> + 写入验证：即使浏览器清理了其中一层，打开时会自动从另一层恢复。<br>
+        已请求<b>持久化存储权限</b>，最大程度防止手机浏览器自动清理数据。
       </div>
     </div>
 
@@ -3366,9 +3403,26 @@ function renderSettings(){
 function bindSettings(){
   /* 本地保存 */
   $('#manualSaveBtn').addEventListener('click', async ()=>{
-    saveData();
-    await backupToLocal();
-    toast('已手动保存到本机 · ' + new Date().toLocaleTimeString());
+    const btn = $('#manualSaveBtn');
+    btn.disabled = true;
+    btn.textContent = '正在保存…';
+    try{
+      await requestPersistentStorage();
+      const result = await forceSave();
+      if(result.lsOk && result.idbOk){
+        toast('✓ 已保存到本机 · ' + new Date().toLocaleTimeString());
+      }else if(result.idbOk){
+        toast('✓ 已保存（IndexedDB 备份成功）· ' + new Date().toLocaleTimeString());
+      }else if(result.lsOk){
+        toast('✓ 已保存（localStorage）· ' + new Date().toLocaleTimeString());
+      }else{
+        toast('⚠ 保存可能未成功，请尝试连接云端同步','err');
+      }
+    }catch(e){
+      toast('保存出错：'+String(e.message||e),'err');
+    }
+    btn.disabled = false;
+    btn.textContent = '💾 手动保存到本机';
   });
   $('#manualReloadBtn').addEventListener('click', ()=>{
     confirmAction('从本机重新读取', '将从本机存储重新加载数据，<strong>当前未保存的修改会丢失</strong>。确认继续？', ()=>{
