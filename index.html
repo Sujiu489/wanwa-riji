@@ -968,7 +968,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--c-blue);outline-off
       </div>
       <h3>隐私提醒</h3>
       <p>默认所有数据存储在<strong>本机浏览器</strong>中，每次修改自动保存，关闭后重开不会丢失。</p>
-      <p>如需多设备同步，可在「设置 → 云端同步」连接<strong>您自己的 Supabase</strong> 数据库，数据只保存在您的账号里。建议定期「导出全部数据备份」留底。</p>
+      <p>如需多设备同步，可在「设置 → 云端同步」连接<strong>您自己的 GitHub</strong> 仓库，数据只保存在您的账号里。建议定期「导出全部数据备份」留底。</p>
     </div>
     <div class="modal-foot" style="justify-content:center;border-top:none;padding-top:0">
       <button class="btn btn-primary" id="privacyOk">我知道了</button>
@@ -1142,8 +1142,9 @@ function updateLocalSaveLine(){
     : '<span style="color:var(--c-text-3)">尚未保存</span>';
 }
 
-/* ==== 云端同步模块（Supabase REST，多设备数据同步） ==== */
-const SYNC_CFG_KEY = 'wb_sync_cfg_v1';
+/* ==== 云端同步模块（GitHub API，多设备数据同步；数据存于仓库 data.json） ==== */
+const SYNC_CFG_KEY = 'wb_sync_cfg_v2';
+const GH_DEFAULTS = { repo:'Sujiu489/wanwa-riji', branch:'main', file:'data.json' };
 const syncState = { connected:false, busy:false, lastSyncAt:null, lastError:'' };
 function getSyncCfg(){
   try{ const r = localStorage.getItem(SYNC_CFG_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; }
@@ -1155,33 +1156,61 @@ function setSyncCfg(cfg){
   }catch(e){}
   idbSet(IDB_CFG, cfg ? JSON.stringify(cfg) : ''); /* 云端配置同样写一份到 IndexedDB */
 }
-function sbHeaders(cfg, extra){
-  const h = { 'apikey':cfg.key, 'Authorization':'Bearer '+cfg.key, 'Content-Type':'application/json' };
-  if(extra) Object.assign(h, extra);
-  return h;
+function utf8ToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64ToUtf8(b64){ return decodeURIComponent(escape(atob(String(b64).replace(/\s/g,'')))); }
+function ghApi(cfg, path, opts){
+  opts = opts || {};
+  const headers = {
+    'Authorization':'Bearer '+cfg.token,
+    'Accept':'application/vnd.github+json',
+    'X-GitHub-Api-Version':'2022-11-28'
+  };
+  if(opts.body) headers['Content-Type'] = 'application/json';
+  return fetch('https://api.github.com'+path, {
+    method: opts.method || 'GET',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  }).then(async res => {
+    if(res.ok) return res.status===204 ? null : res.json();
+    let msg = 'HTTP '+res.status;
+    try{ const j = await res.json(); if(j && j.message) msg += ' '+j.message; }catch(e){}
+    const err = new Error(msg); err.status = res.status; throw err;
+  });
 }
-function sbUrl(cfg, path, query){
-  return cfg.url.replace(/\/+$/,'') + path + (query||'');
+/* 读取分支最新 commit 与根 tree */
+async function ghReadHead(cfg){
+  const ref = await ghApi(cfg, '/repos/'+cfg.repo+'/git/ref/heads/'+encodeURIComponent(cfg.branch));
+  const commit = await ghApi(cfg, '/repos/'+cfg.repo+'/git/commits/'+ref.object.sha);
+  return { commitSha: ref.object.sha, treeSha: commit.tree.sha };
 }
-async function sbPush(){
+async function ghPullWith(cfg){
+  const head = await ghReadHead(cfg);
+  const tree = await ghApi(cfg, '/repos/'+cfg.repo+'/git/trees/'+head.treeSha);
+  const entry = (tree.tree||[]).find(t=>t.path===cfg.file);
+  if(!entry) return null;
+  const blob = await ghApi(cfg, '/repos/'+cfg.repo+'/git/blobs/'+entry.sha);
+  const payload = JSON.parse(b64ToUtf8(blob.content));
+  return { updated_at: payload.updated_at, data: payload.data };
+}
+async function ghPush(){
   const cfg = getSyncCfg(); if(!cfg) return false;
-  const res = await fetch(sbUrl(cfg,'/rest/v1/cabinet_data'), {
-    method:'POST',
-    headers: sbHeaders(cfg, {'Prefer':'resolution=merge-duplicates'}),
-    body: JSON.stringify({ room:cfg.room, data: state, updated_at:new Date().toISOString() })
-  });
-  if(!res.ok){ const t = await res.text(); throw new Error('HTTP '+res.status+' '+t.slice(0,100)); }
-  syncState.lastSyncAt = Date.now(); syncState.lastError = '';
-  updateSyncBadge();
-  return true;
-}
-async function sbPullWith(cfg){
-  const res = await fetch(sbUrl(cfg,'/rest/v1/cabinet_data','?select=room,data,updated_at&room=eq.'+encodeURIComponent(cfg.room)), {
-    headers: sbHeaders(cfg)
-  });
-  if(!res.ok){ const t = await res.text(); throw new Error('HTTP '+res.status+' '+t.slice(0,100)); }
-  const rows = await res.json();
-  return rows && rows.length ? rows[0] : null;
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const head = await ghReadHead(cfg);
+      const payload = { updated_at: new Date().toISOString(), data: state };
+      const blob = await ghApi(cfg, '/repos/'+cfg.repo+'/git/blobs', { method:'POST', body:{ content: utf8ToB64(JSON.stringify(payload)), encoding:'base64' } });
+      const tree = await ghApi(cfg, '/repos/'+cfg.repo+'/git/trees', { method:'POST', body:{ base_tree: head.treeSha, tree:[{ path: cfg.file, mode:'100644', type:'blob', sha: blob.sha }] } });
+      const commit = await ghApi(cfg, '/repos/'+cfg.repo+'/git/commits', { method:'POST', body:{ message:'cloud-sync: update workspace data', tree: tree.sha, parents:[ head.commitSha ] } });
+      await ghApi(cfg, '/repos/'+cfg.repo+'/git/ref/heads/'+encodeURIComponent(cfg.branch), { method:'PATCH', body:{ sha: commit.sha, force:false } });
+      syncState.lastSyncAt = Date.now(); syncState.lastError = '';
+      updateSyncBadge();
+      return true;
+    }catch(e){
+      if(e.status===409 || e.status===422){ continue; } /* 远端有更新的提交：重读最新状态后再试一次 */
+      throw e;
+    }
+  }
+  throw new Error('云端数据刚刚被其他设备更新，请稍候再同步');
 }
 let syncTimer = null;
 function scheduleSyncPush(){
@@ -1189,20 +1218,29 @@ function scheduleSyncPush(){
   clearTimeout(syncTimer);
   syncTimer = setTimeout(async ()=>{
     syncState.busy = true; updateSyncBadge();
-    try{ await sbPush(); toast('已自动同步到云端'); }
+    try{ await ghPush(); }
     catch(e){ syncState.lastError = String(e.message||e); updateSyncBadge(); }
     syncState.busy = false; updateSyncBadge();
-  }, 2500);
+  }, 6000);
 }
 function localSavedAt(){ return Number(lsGet('wb_saved_at')||0); }
 async function syncConnect(cfg, opts){
   opts = opts||{};
-  if(!cfg || !/^https?:\/\//.test(cfg.url||'')) { toast('请填写正确的项目地址','err'); return false; }
-  if(!cfg.key){ toast('请填写 anon 公钥','err'); return false; }
-  if(!cfg.room){ toast('请填写同步码','err'); return false; }
+  cfg = Object.assign({}, GH_DEFAULTS, cfg||{});
+  if(!cfg.token){ toast('请填写 GitHub 访问令牌','err'); return false; }
+  if(!/^[\w.-]+\/[\w.-]+$/.test(cfg.repo||'')){ toast('请填写仓库（格式：用户名/仓库名）','err'); return false; }
   syncState.busy = true; updateSyncBadge();
   try{
-    const row = await sbPullWith(cfg);
+    /* 先验证令牌与仓库 */
+    try{ await ghApi(cfg, '/repos/'+cfg.repo); }
+    catch(e){
+      const st = e.status;
+      let hint = '';
+      if(st===401) hint = '（令牌无效或已过期）';
+      else if(st===404) hint = '（仓库不存在，或令牌没有 repo 权限）';
+      throw new Error('连接失败 HTTP '+st+' '+hint);
+    }
+    const row = await ghPullWith(cfg);
     const localAt = localSavedAt();
     const remoteAt = row ? new Date(row.updated_at).getTime() : 0;
     const localHas = !!lsGet();
@@ -1216,7 +1254,7 @@ async function syncConnect(cfg, opts){
       location.reload();
       return true;
     }
-    if(!row && localHas){ await sbPush(); }
+    if(!row && localHas){ await ghPush(); }
     syncState.connected = true; syncState.lastError = '';
     syncState.busy = false; updateSyncBadge();
     if(!opts.silent) toast('云端同步已连接');
@@ -1227,7 +1265,7 @@ async function syncConnect(cfg, opts){
     syncState.lastError = String(e.message||e);
     syncState.connected = false;
     updateSyncBadge();
-    toast('连接失败：'+syncState.lastError+'（请检查地址/公钥/数据表）','err');
+    toast(syncState.lastError,'err');
     return false;
   }
 }
@@ -1243,7 +1281,7 @@ async function syncAutoResume(){
   const cfg = getSyncCfg();
   if(!cfg) { updateSyncBadge(); return; }
   try{
-    const row = await sbPullWith(cfg);
+    const row = await ghPullWith(cfg);
     const localAt = localSavedAt();
     const remoteAt = row ? new Date(row.updated_at).getTime() : 0;
     if(row && remoteAt > localAt){
@@ -1306,16 +1344,16 @@ function openSyncModal(){
         <button class="btn btn-outline" id="smPull" style="padding:10px 16px;min-height:44px;font-size:14px">从云端拉取</button>
         <button class="btn btn-ghost" id="smOff" style="padding:10px 16px;min-height:44px;font-size:14px">断开</button>
       </div>
-      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">已连接时，每次修改都会自动保存并同步到云端（约 2.5 秒内推送），换设备打开后自动拉取最新数据。</div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">已连接时，每次修改都会自动保存并同步到云端（约 6 秒内推送到您的 GitHub 仓库），换设备打开后自动拉取最新数据。</div>
     ` : `
-      <div class="sync-form-row"><label>项目地址（Project URL）</label><input id="smUrl" placeholder="https://xxxxx.supabase.co" value="${esc(cfg.url||'')}" autocomplete="off" spellcheck="false"></div>
-      <div class="sync-form-row"><label>anon 公钥（API Key）</label><input id="smKey" placeholder="eyJhbGciOi..." value="${esc(cfg.key||'')}" autocomplete="off" spellcheck="false"></div>
-      <div class="sync-form-row"><label>同步码（多台设备填同一个即可互相同步）</label><input id="smRoom" placeholder="如：sujiu-cabinet-001" value="${esc(cfg.room||'')}" autocomplete="off" spellcheck="false"></div>
+      <div class="sync-form-row"><label>GitHub 访问令牌（Token）</label><input id="smToken" type="password" placeholder="ghp_...（github.com/settings/tokens 生成，勾选 repo 权限）" autocomplete="off" spellcheck="false"></div>
+      <div class="sync-form-row"><label>数据仓库（用户名/仓库名）</label><input id="smRepo" placeholder="如：Sujiu489/wanwa-riji" value="${esc(cfg.repo||GH_DEFAULTS.repo)}" autocomplete="off" spellcheck="false"></div>
+      <div class="sync-form-row"><label>分支</label><input id="smBranch" placeholder="main" value="${esc(cfg.branch||GH_DEFAULTS.branch)}" autocomplete="off" spellcheck="false"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn btn-primary" id="smConnect" style="padding:10px 16px;min-height:44px;font-size:14px">连接云端</button>
         <button class="btn btn-outline" id="smHelp" style="padding:10px 16px;min-height:44px;font-size:14px">查看接入教程</button>
       </div>
-      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">连接自己的 Supabase（免费）后，多台手机/电脑数据自动保持一致；不连接也完全不影响本地自动保存。</div>
+      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.7">连接自己的 GitHub 仓库后，数据自动保存到仓库 data.json，多台手机/电脑保持一致。令牌只保存在本机浏览器，不会写进网页。不连接也完全不影响本地自动保存。</div>
     `}
     <button class="btn btn-ghost" id="smSettings" style="margin-top:14px;width:100%;padding:10px;min-height:44px;font-size:13px">打开详细同步设置</button>
   `);
@@ -1325,7 +1363,7 @@ function openSyncModal(){
     q('smPush').onclick = async ()=>{
       syncState.busy = true; updateSyncBadge();
       const st = q('syncModalStatus'); if(st) st.innerHTML = syncModalStatusHTML();
-      try{ await sbPush(); toast('已同步到云端'); }
+      try{ await ghPush(); toast('已同步到云端'); }
       catch(e){ syncState.lastError = String(e.message||e); toast('同步失败：'+syncState.lastError,'err'); }
       syncState.busy = false; updateSyncBadge();
       const st2 = q('syncModalStatus'); if(st2) st2.innerHTML = syncModalStatusHTML();
@@ -1333,7 +1371,7 @@ function openSyncModal(){
     q('smPull').onclick = ()=> confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未同步的改动会丢失），确认继续？', async ()=>{
       const c = getSyncCfg(); if(!c) return;
       try{
-        const row = await sbPullWith(c);
+        const row = await ghPullWith(c);
         if(row){
           lsSet(STORE_KEY, JSON.stringify(row.data));
           lsSet('wb_saved_at', String(new Date(row.updated_at).getTime()));
@@ -1345,7 +1383,7 @@ function openSyncModal(){
     q('smOff').onclick = async ()=>{ await syncDisconnect(); openSyncModal(); };
   } else {
     q('smConnect').onclick = async ()=>{
-      const ok = await syncConnect({ url:q('smUrl').value.trim(), key:q('smKey').value.trim(), room:q('smRoom').value.trim() });
+      const ok = await syncConnect({ token:q('smToken').value.trim(), repo:q('smRepo').value.trim(), branch:q('smBranch').value.trim() });
       if(ok && !document.hidden) openSyncModal();
     };
     q('smHelp').onclick = gotoSyncSettings;
@@ -1385,6 +1423,22 @@ function saveData(){
   updateLocalSaveLine();
 }
 let state = loadData();
+
+/* ============ 数据自愈：修复历史 ID 冲突 bug 产生的脏数据 ============
+   之前在「陈列」视图添加/编辑衣服时，category 可能被误存为筛选器值 'all'、
+   status 被误存为 'all'，导致衣服不属于任何分类而「消失」、无法点击和删除。
+   这里在加载时自动把这类衣服归回第一个分类，恢复正常显示。 */
+(function repairClothesData(){
+  if(!Array.isArray(state.clothes) || !Array.isArray(state.categories)) return;
+  const catIds = new Set(state.categories.map(c=>c.id));
+  const fallbackCat = state.categories.length ? state.categories[0].id : '';
+  state.clothes.forEach(c=>{
+    /* 历史 bug：预填添加时 id 被存成 null → 卡片 data-id="undefined"，点击/删除永远失效 */
+    if(!c.id) c.id = uid();
+    if(!catIds.has(c.category)) c.category = fallbackCat;
+    if(c.status!=='shipped' && c.status!=='not_shipped') c.status = 'not_shipped';
+  });
+})();
 
 /* ================= Helpers ================= */
 const $ = (sel, root=document) => root.querySelector(sel);
@@ -1572,7 +1626,7 @@ document.addEventListener('visibilitychange', ()=>{
     flushLocal();
     if(getSyncCfg() && syncState.connected){
       clearTimeout(syncTimer);
-      sbPush().catch(e=>{ syncState.lastError = String(e.message||e); updateSyncBadge(); });
+      ghPush().catch(e=>{ syncState.lastError = String(e.message||e); updateSyncBadge(); });
     }
   }
 });
@@ -1580,7 +1634,7 @@ window.addEventListener('pagehide', ()=>{
   flushLocal();
   if(getSyncCfg() && syncState.connected){
     clearTimeout(syncTimer);
-    try{ sbPush(); }catch(e){}
+    try{ ghPush(); }catch(e){}
   }
 });
 /* 多标签页 / 多设备期间定期检查云端是否有更新（每 2 分钟拉一次时间戳） */
@@ -1588,7 +1642,7 @@ setInterval(async ()=>{
   const cfg = getSyncCfg();
   if(!cfg || !syncState.connected) return;
   try{
-    const row = await sbPullWith(cfg);
+    const row = await ghPullWith(cfg);
     if(row){
       const remoteAt = new Date(row.updated_at).getTime();
       if(remoteAt > localSavedAt() + 3000){
@@ -1961,9 +2015,9 @@ function renderClothesCategory(cat){
     <div class="cat-detail-sub">${count} 件 · 尾款 <span style="color:var(--c-pink);font-weight:600">¥${fmt(balanceSum).replace('¥','')}</span> · 总计 <span style="color:var(--c-pink);font-weight:600">¥${fmt(totalSum).replace('¥','')}</span></div>
 
     <div class="cat-detail-list">
-      ${items.length===0?'<div class="empty"><p>该分类下还没有衣物，点右上「添加衣服」录入</p></div>':''}
+      ${items.length===0?'<div class="empty"><p>该分类下还没有衣物，点右下角 + 按钮录入</p></div>':''}
       ${items.map(item=>`
-        <div class="cat-detail-item" data-id="${item.id}">
+        <div class="cat-detail-item" data-id="${item.id}" title="点击查看详情">
           <div class="cat-thumb bg-${cat.bg}">
             ${item.image ? `<img src="${esc(item.image)}">` : svgIcon(cat.icon,42)}
             <span class="pay-pill ${item.paid?'paid':'unpaid'}">${item.paid?'已补款':'未补款'}</span>
@@ -2013,7 +2067,7 @@ function renderClothesList(){
         : `<span class="tag unpaid">未补款</span>`;
       const paidLabel = item.paid ? '已补' : '未补';
       html += `
-        <div class="cloth-list-card" data-id="${item.id}">
+        <div class="cloth-list-card" data-id="${item.id}" title="点击查看详情">
           <div class="lc-thumb">
             ${item.image ? `<img src="${esc(item.image)}">` : svgIcon(cat.icon,38)}
           </div>
@@ -2089,10 +2143,85 @@ function bindClothes(){
     const c = state.clothes.find(x=>x.id===b.dataset.pay);
     if(c){ c.paid=!c.paid; saveData(); renderPage(); toast(c.paid?'已标记为补完':'已取消标记'); }
   }));
-  $$('[data-id]', pageEl).forEach(b => b.addEventListener('click', ()=>{
-    const c = state.clothes.find(x=>x.id===b.dataset.id);
-    if(c) openClothModal(c);
-  }));
+  $$('[data-id]', pageEl).forEach(b => {
+    b.dataset.directBound = '1'; /* 标记已直接绑定，委托兜底不重复处理 */
+    b.addEventListener('click', ()=>{
+      const c = state.clothes.find(x=>x.id===b.dataset.id);
+      if(c) openClothDetailModal(c);
+    });
+  });
+  /* 事件委托兜底：即使上方逐个绑定因故失效，点击衣物卡片仍能打开详情 */
+  if(!pageEl.dataset.clothDelegate){
+    pageEl.dataset.clothDelegate = '1';
+    pageEl.addEventListener('click', e=>{
+      const card = e.target.closest('[data-id]');
+      if(!card || !pageEl.contains(card)) return;
+      /* 若逐个绑定已生效（卡片自身带监听），委托这里就不重复处理 */
+      if(card.dataset.directBound === '1') return;
+      const c = state.clothes.find(x=>x.id===card.dataset.id);
+      if(c && currentPage==='clothes') openClothDetailModal(c);
+    });
+  }
+}
+
+/* ============ 衣服详情弹窗：点开每件衣服的具体情况，可编辑 / 删除 / 继续新增 ============ */
+function openClothDetailModal(item){
+  const cat = state.categories.find(c=>c.id===item.category);
+  const shipTag = item.status==='shipped'
+    ? '<span class="tag shipped">已出货</span>'
+    : '<span class="tag not-shipped">未出货</span>';
+  const paidTag = item.paid
+    ? '<span class="tag paid">已补款</span>'
+    : '<span class="tag unpaid">未补款</span>';
+  const infoCell = (l,v) => `
+    <div style="background:#F4F9FB;border:1px dashed var(--c-line);border-radius:10px;padding:10px 8px;text-align:center">
+      <div style="font-size:11px;color:var(--c-text-3);margin-bottom:3px">${l}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--c-dark);font-feature-settings:'tnum';word-break:break-all">${v}</div>
+    </div>`;
+  openModal(`
+    <div class="modal-head">
+      <h3>${svgIcon(cat?cat.icon:'clothes',18)} ${esc(item.name)}</h3>
+      <button class="modal-close" data-x>${svgIcon('x',18)}</button>
+    </div>
+    <div class="modal-body">
+      ${item.image ? `
+        <div style="border-radius:14px;overflow:hidden;background:#F4F9FB;margin-bottom:14px;text-align:center">
+          <img src="${esc(item.image)}" style="width:100%;max-height:320px;object-fit:contain">
+        </div>` : `
+        <div style="border-radius:14px;background:linear-gradient(135deg,#E8F2F7,#D5E5EE);color:#7FA6BC;display:flex;align-items:center;justify-content:center;height:140px;margin-bottom:14px">
+          ${svgIcon(cat?cat.icon:'clothes',48)}
+        </div>`}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+        <span class="tag" style="background:rgba(175,219,230,.4)">${esc(cat?cat.name:'未分类')}${item.size?' · '+esc(item.size):''}</span>
+        ${shipTag}${paidTag}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        ${infoCell('定金', fmt(item.deposit))}
+        ${infoCell('尾款', fmt(item.balance))}
+        ${infoCell('全款', fmt(item.total))}
+      </div>
+      ${item.note ? `
+        <div style="background:rgba(175,219,230,.2);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--c-text-3);margin-bottom:4px">备注</div>
+          <div style="font-size:13px;color:var(--c-dark);line-height:1.6;white-space:pre-wrap">${esc(item.note)}</div>
+        </div>` : ''}
+      <div style="font-size:11px;color:var(--c-text-3);text-align:right">录入于 ${item.createdAt?new Date(item.createdAt).toLocaleDateString():'-'}</div>
+    </div>
+    <div class="modal-foot" style="flex-wrap:wrap">
+      <button class="btn btn-outline" id="dtDel" style="margin-right:auto;color:var(--c-red);border-color:rgba(232,90,111,.4)">${svgIcon('trash',15)} 删除</button>
+      <button class="btn btn-ghost" id="dtAdd">${svgIcon('plus',15)} 新增</button>
+      <button class="btn btn-primary" id="dtEdit">${svgIcon('edit',15)} 编辑</button>
+    </div>
+  `);
+  $$('[data-x]', modalContent).forEach(b => b.addEventListener('click', closeModal));
+  $('#dtEdit').addEventListener('click', ()=> openClothModal(item));
+  $('#dtAdd').addEventListener('click', ()=> openClothModal(item.category ? {category:item.category} : undefined));
+  $('#dtDel').addEventListener('click', ()=>{
+    confirmAction('删除衣服', `确定删除「${esc(item.name)}」吗？此操作不可撤销。`, ()=>{
+      state.clothes = state.clothes.filter(c=>c.id!==item.id);
+      saveData(); closeModal(); renderPage(); toast('已删除');
+    });
+  });
 }
 
 function openClothModal(existing){
@@ -2164,34 +2293,37 @@ function openClothModal(existing){
       <button class="btn btn-primary" id="sSave">${svgIcon('check',16)} 保存</button>
     </div>
   `);
+  /* 关键修复：表单内 #fStatus/#fCat 与页面筛选器 ID 重名，document 查询会命中页面上的筛选器，
+     导致保存的衣服 category 变成 'all'（不属于任何分类，列表里消失）。所有查询限定在弹窗内。 */
+  const q = sel => $(sel, modalContent);
   let newImg = data.image || '';
-  $('#upFile').addEventListener('change', async e=>{
+  q('#upFile').addEventListener('change', async e=>{
     const f = e.target.files[0];
     if(!f) return;
     newImg = await fileToBase64(f);
     if(newImg){
-      $('#prevImg').src = newImg; $('#prevImg').style.display='block';
-      $('#upIcon').style.display='none'; $('#phTxt').style.display='none';
-      $('#upWrap').classList.add('has');
+      q('#prevImg').src = newImg; q('#prevImg').style.display='block';
+      q('#upIcon').style.display='none'; q('#phTxt').style.display='none';
+      q('#upWrap').classList.add('has');
     } else {
       toast('图片读取失败，请换一张试试','err');
     }
   });
-  $('#sSave').addEventListener('click', ()=>{
-    const name = $('#fName').value.trim();
+  q('#sSave').addEventListener('click', ()=>{
+    const name = q('#fName').value.trim();
     if(!name){ toast('请填写名称','err'); return; }
     const payload = {
-      id: existing? existing.id : uid(),
+      id: (existing && existing.id) ? existing.id : uid(),
       name,
-      size: $('#fSize').value.trim(),
-      status: $('#fStatus').value,
-      deposit: parseFloat($('#fDeposit').value)||0,
-      balance: parseFloat($('#fBalance').value)||0,
-      total: parseFloat($('#fTotal').value)||0,
-      category: $('#fCat').value,
-      note: $('#fNote').value.trim(),
+      size: q('#fSize').value.trim(),
+      status: q('#fStatus').value,
+      deposit: parseFloat(q('#fDeposit').value)||0,
+      balance: parseFloat(q('#fBalance').value)||0,
+      total: parseFloat(q('#fTotal').value)||0,
+      category: q('#fCat').value,
+      note: q('#fNote').value.trim(),
       image: newImg,
-      paid: $('#fPaid').value==='1',
+      paid: q('#fPaid').value==='1',
       createdAt: existing? existing.createdAt : Date.now()
     };
     if(isEdit){
@@ -2203,7 +2335,7 @@ function openClothModal(existing){
     saveData(); closeModal(); renderPage(); toast(isEdit?'已保存修改':'已添加衣服');
   });
   if(isEdit){
-    $('#delCloth').addEventListener('click', ()=>{
+    q('#delCloth').addEventListener('click', ()=>{
       confirmAction('删除衣服','确定删除这件衣服吗？此操作不可撤销。',()=>{
         state.clothes = state.clothes.filter(c=>c.id!==existing.id);
         saveData(); closeModal(); renderPage(); toast('已删除');
@@ -2562,7 +2694,7 @@ function openBodyModal(existing, defaultMine){
     const name = $('#fName').value.trim();
     if(!name){ toast('请填写名称','err'); return; }
     const payload = {
-      id: existing? existing.id : uid(),
+      id: (existing && existing.id) ? existing.id : uid(),
       name,
       isMine: $('#fMine').value==='1',
       size: $('#fSize').value.trim(),
@@ -2758,7 +2890,7 @@ function openWishModal(existing){
     const date = $('#fDate').value;
     if(!date){ toast('请选择日期','err'); return; }
     const payload = {
-      id: existing? existing.id : uid(),
+      id: (existing && existing.id) ? existing.id : uid(),
       name,
       price: parseFloat($('#fPrice').value)||0,
       date,
@@ -3159,19 +3291,19 @@ function renderSettings(){
     </div>
 
     <div class="setting-section" id="cloudSyncSection">
-      <h3>☁️ 云端同步（Supabase）</h3>
+      <h3>☁️ 云端同步（GitHub）</h3>
       <div style="font-size:13px;margin-bottom:12px" id="syncStatusLine"></div>
       <div class="sync-form-row">
-        <label>项目地址（Project URL）</label>
-        <input id="syncUrl" placeholder="https://xxxxx.supabase.co" autocomplete="off" spellcheck="false">
+        <label>GitHub 访问令牌（Token）</label>
+        <input id="syncToken" type="password" placeholder="ghp_...（github.com/settings/tokens 生成，勾选 repo 权限）" autocomplete="off" spellcheck="false">
       </div>
       <div class="sync-form-row">
-        <label>anon 公钥（API Key）</label>
-        <input id="syncKey" placeholder="eyJhbGciOi...（Supabase 项目设置 → API）" autocomplete="off" spellcheck="false">
+        <label>数据仓库（用户名/仓库名）</label>
+        <input id="syncRepo" placeholder="如：Sujiu489/wanwa-riji" autocomplete="off" spellcheck="false">
       </div>
       <div class="sync-form-row">
-        <label>同步码（多台设备填同一个即可互相同步）</label>
-        <input id="syncRoom" placeholder="如：sujiu-cabinet-001" autocomplete="off" spellcheck="false">
+        <label>分支</label>
+        <input id="syncBranch" placeholder="main" autocomplete="off" spellcheck="false">
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn btn-primary" id="syncConnectBtn" style="padding:8px 16px;min-height:38px;font-size:13px">连接云端</button>
@@ -3180,11 +3312,9 @@ function renderSettings(){
         <button class="btn btn-outline" id="syncDownBtn" style="padding:8px 16px;min-height:38px;font-size:13px">从云端拉取覆盖本机</button>
       </div>
       <div style="font-size:12px;color:var(--c-text-3);margin-top:12px;line-height:1.7">
-        首次使用：在 supabase.com 免费建项目 → SQL Editor 执行建表语句（见下方帮助）→ 把 URL / anon key 填到上面。<br>
-        连接后：<b style="color:#3A6E58">☁ 已连接</b>（绿）= 数据自动双向同步；<b style="color:#5F7C95">☁ 未连接</b>（灰）= 数据仅保存在本机。
-      </div>
-      <div style="font-size:12px;color:var(--c-text-3);margin-top:10px;padding:10px;background:rgba(175,219,230,.18);border-radius:10px;line-height:1.6;font-family:monospace;word-break:break-all">
-        create table if not exists cabinet_data (<br>&nbsp;&nbsp;room text primary key,<br>&nbsp;&nbsp;data jsonb not null,<br>&nbsp;&nbsp;updated_at timestamptz not null default now()<br>);<br>alter table cabinet_data enable row level security;<br>create policy "sync_all" on cabinet_data for all using (true) with check (true);
+        使用方法：到 <b>github.com → Settings → Developer settings → Personal access tokens</b> 生成令牌（勾选 <b>repo</b> 权限），粘贴到上面点「连接云端」。<br>
+        令牌只保存在本机浏览器，<b>不会</b>写进网页或泄露；每台设备粘贴一次即可。<br>
+        连接后数据自动同步到仓库的 <b>data.json</b>，多台手机/电脑数据保持一致；<b style="color:#3A6E58">☁ 已连接</b>（绿）= 自动双向同步；<b style="color:#5F7C95">☁ 未连接</b>（灰）= 仅保存在本机。
       </div>
     </div>
 
@@ -3220,7 +3350,7 @@ function renderSettings(){
         <div>📦 数据存储：本机双层（localStorage + IndexedDB），自动保存、自动恢复${storageOK()?'':'（⚠️ 当前环境存储受限，建议连接云端同步）'}
         </div>
         <div>🎨 配色：粉青 · 粉黛 · 灰月 · 沙青 · 烟凝</div>
-        <div>🔒 隐私：默认仅存本机；连接云端同步后保存在您自己的 Supabase 账号</div>
+        <div>🔒 隐私：默认仅存本机；连接云端同步后保存在您自己的 GitHub 仓库</div>
         <div style="margin-top:8px;color:var(--c-text-3)">v1.0 · 由 WorkBuddy 小台搭建</div>
       </div>
     </div>
@@ -3229,15 +3359,12 @@ function renderSettings(){
 function bindSettings(){
   /* 云端同步 */
   const scfg = getSyncCfg();
-  if(scfg){
-    $('#syncUrl').value = scfg.url||'';
-    $('#syncKey').value = scfg.key||'';
-    $('#syncRoom').value = scfg.room||'';
-  }
+  $('#syncRepo').value = (scfg && scfg.repo) || GH_DEFAULTS.repo;
+  $('#syncBranch').value = (scfg && scfg.branch) || GH_DEFAULTS.branch;
   updateSyncBadge();
   updateLocalSaveLine();
   $('#syncConnectBtn').addEventListener('click', async ()=>{
-    const cfg = { url:$('#syncUrl').value.trim(), key:$('#syncKey').value.trim(), room:$('#syncRoom').value.trim() };
+    const cfg = { token:$('#syncToken').value.trim(), repo:$('#syncRepo').value.trim(), branch:$('#syncBranch').value.trim() };
     await syncConnect(cfg);
   });
   $('#syncDisconnectBtn').addEventListener('click', ()=> syncDisconnect());
@@ -3246,7 +3373,7 @@ function bindSettings(){
     if(!cfg){ toast('请先连接云端','err'); return; }
     syncState.busy = true; updateSyncBadge();
     try{
-      await sbPush();
+      await ghPush();
       lsSet('wb_saved_at', String(Date.now()));
       toast('已把本机数据上传到云端');
       renderPage();
@@ -3262,7 +3389,7 @@ function bindSettings(){
     if(!cfg){ toast('请先连接云端','err'); return; }
     confirmAction('从云端拉取','将用云端数据<strong>覆盖本机全部数据</strong>（本机未同步的改动会丢失），确认继续？', async ()=>{
       try{
-        const row = await sbPullWith(cfg);
+        const row = await ghPullWith(cfg);
         if(!row){ toast('云端还没有数据','err'); return; }
         lsSet(STORE_KEY, JSON.stringify(row.data));
         lsSet('wb_saved_at', String(new Date(row.updated_at).getTime()));
