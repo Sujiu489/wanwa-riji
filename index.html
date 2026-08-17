@@ -1200,6 +1200,20 @@ async function idbSet(k, v){
     return true;
   }catch(e){ return false; }
 }
+/* 批量写入多个 key-value 到单个事务，避免多次事务开销 */
+async function idbSetBatch(entries){
+  try{
+    const db = await idbOpen();
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction('kv','readwrite');
+      for(const [k, v] of entries) tx.objectStore('kv').put(v, k);
+      tx.oncomplete = resolve;
+      tx.onerror = ()=>reject(tx.error);
+      tx.onabort = ()=>reject(tx.error);
+    });
+    return true;
+  }catch(e){ return false; }
+}
 async function idbGet(k){
   try{
     const db = await idbOpen();
@@ -1241,12 +1255,13 @@ async function createBackupSnapshot(reason){
   try{
     const db = await idbOpen();
     const ts = Date.now();
+    const jsonStr = JSON.stringify(state);
     const snapshot = {
       id: 'bk_' + ts + '_' + Math.random().toString(36).slice(2,6),
       timestamp: ts,
       reason: reason || 'auto',
-      data: JSON.parse(JSON.stringify(state)),
-      dataSize: JSON.stringify(state).length
+      data: JSON.parse(jsonStr),
+      dataSize: jsonStr.length
     };
     await new Promise((resolve, reject)=>{
       const tx = db.transaction('backups','readwrite');
@@ -1355,7 +1370,7 @@ function mergeData(data){
   return merged;
 }
 /* 设置页「本地保存」状态行 */
-function updateLocalSaveLine(){
+function updateLocalSaveLine(optSize){
   const el = document.getElementById('localSaveLine');
   if(!el) return;
   const t = Number(state._savedAt||0);
@@ -1366,12 +1381,20 @@ function updateLocalSaveLine(){
   if(detail){
     const clothCount = (state.clothes||[]).length;
     const bodyCount = (state.bodies||[]).length;
-    const dataSize = JSON.stringify(state).length;
+    const dataSize = optSize!=null ? optSize : JSON.stringify(state).length;
     detail.innerHTML = '当前数据：' + clothCount + ' 件衣服 · ' + bodyCount + ' 个体子 · 数据大小 ' + (dataSize/1024).toFixed(1) + ' KB';
   }
 }
-/* 更新存储用量显示（首页 + 设置页） */
+/* 更新存储用量显示（首页 + 设置页）— 节流：最多 10 秒一次，避免每次保存都调用慢 API */
+let __storageUsageTimer = 0;
+let __storageUsageRunning = false;
 async function updateStorageUsage(){
+  /* 如果已有定时器等待中，跳过（节流） */
+  if(__storageUsageRunning) return;
+  if(__storageUsageTimer){ clearTimeout(__storageUsageTimer); }
+  __storageUsageTimer = setTimeout(()=>{ __storageUsageTimer=0; __storageUsageRunning=true; _doUpdateStorageUsage().finally(()=>{__storageUsageRunning=false;}); }, 300);
+}
+async function _doUpdateStorageUsage(){
   const est = await getStorageEstimate();
   /* 首页存储卡片 */
   const homeEl = document.getElementById('storageUsageCard');
@@ -1672,11 +1695,10 @@ function showSaveBadge(ok, label){
 function saveData(){
   state._savedAt = Date.now();
   const json = JSON.stringify(state);
-  /* 仅存 IndexedDB（容量大，不会静默失败）；云端为手动上传模式，不自动推送 */
-  __lastSavePromise = idbSet(IDB_DATA, json).then(()=>{
-    return idbSet(IDB_AT, state._savedAt);
-  });
-  updateLocalSaveLine();
+  const jsonLen = json.length;
+  /* 单事务批量写入 IDB_DATA + IDB_AT，避免两次事务开销 */
+  __lastSavePromise = idbSetBatch([[IDB_DATA, json], [IDB_AT, state._savedAt]]);
+  updateLocalSaveLine(jsonLen);
   updateStorageUsage();
   __lastSavePromise.then(idbOk=>{
     if(idbOk) showSaveBadge(true);
@@ -1687,15 +1709,15 @@ function saveData(){
 async function forceSave(){
   state._savedAt = Date.now();
   const json = JSON.stringify(state);
+  const jsonLen = json.length;
   let idbWriteOk = false;
   try{
-    await idbSet(IDB_DATA, json);
-    await idbSet(IDB_AT, state._savedAt);
+    await idbSetBatch([[IDB_DATA, json], [IDB_AT, state._savedAt]]);
     const verify = await idbGet(IDB_DATA);
     idbWriteOk = (verify === json);
   }catch(e){ idbWriteOk = false; }
   __lastSavePromise = Promise.resolve();
-  updateLocalSaveLine();
+  updateLocalSaveLine(jsonLen);
   updateStorageUsage();
   showSaveBadge(idbWriteOk, idbWriteOk ? '💾 已保存' : '⚠ 保存失败');
   return { idbOk: idbWriteOk };
