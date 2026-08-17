@@ -1161,9 +1161,17 @@ function updateLocalSaveLine(){
   const timeStr = t ? new Date(t).toLocaleString() : '尚未保存';
   let html = '<span style="color:#3A6E58">✓ 最近保存：' + timeStr + '</span>';
   if(!lsWorking){
-    html += '<br><span style="color:var(--c-red)">⚠ 浏览器不支持 localStorage，数据仅存于 IndexedDB 备份层</span>';
+    html += '<br><span style="color:var(--c-red)">⚠ 浏览器不支持 localStorage</span>';
   }
   el.innerHTML = html;
+  /* 详情行：当前数据统计 */
+  const detail = document.getElementById('localSaveDetail');
+  if(detail){
+    const clothCount = (state.clothes||[]).length;
+    const bodyCount = (state.bodies||[]).length;
+    const dataSize = JSON.stringify(state).length;
+    detail.innerHTML = '当前数据：' + clothCount + ' 件衣服 · ' + bodyCount + ' 个体子 · 数据大小 ' + (dataSize/1024).toFixed(1) + ' KB';
+  }
 }
 
 /* ==== 云端同步模块（GitHub API，多设备数据同步；数据存于仓库 data.json） ==== */
@@ -3321,16 +3329,20 @@ function renderSettings(){
 
     <div class="setting-section">
       <h3>💾 本地保存</h3>
-      <div style="font-size:13px;margin-bottom:10px" id="localSaveLine"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn btn-primary" id="manualSaveBtn" style="padding:8px 16px;min-height:38px;font-size:13px">💾 手动保存到本机</button>
-        <button class="btn btn-outline" id="manualReloadBtn" style="padding:8px 16px;min-height:38px;font-size:13px">📂 从本机重新读取</button>
+      <div id="localSavePanel" style="background:var(--c-bg-2);border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px;line-height:1.8">
+        <div id="localSaveLine"></div>
+        <div id="localSaveDetail" style="margin-top:6px;font-size:12px;color:var(--c-text-3)"></div>
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-primary" id="manualSaveBtn" style="padding:10px 20px;min-height:44px;font-size:14px">💾 手动保存到本机</button>
+        <button class="btn btn-outline" id="manualReloadBtn" style="padding:10px 16px;min-height:44px;font-size:14px">📂 从本机重新读取</button>
+      </div>
+      <div id="saveResultBox" style="display:none;margin-bottom:12px;padding:10px;border-radius:8px;font-size:13px;line-height:1.7"></div>
       <div style="font-size:12px;color:var(--c-text-3);line-height:1.8">
-        点击「手动保存到本机」可<b>立即存档</b>当前所有数据，保存后会显示确认提示。<br>
+        点击「手动保存到本机」可<b>立即存档</b>当前所有数据，保存后会显示详细结果。<br>
         每次修改也会<b>自动保存</b>；下次打开页面会<b>自动读取</b>上次保存的历史数据。<br>
-        数据采用 localStorage + IndexedDB <b>双层本地存储</b> + 写入验证：即使浏览器清理了其中一层，打开时会自动从另一层恢复。<br>
-        已请求<b>持久化存储权限</b>，最大程度防止手机浏览器自动清理数据。
+        数据采用 localStorage + IndexedDB <b>双层本地存储</b> + 写入验证。<br>
+        <b style="color:var(--c-red)">注意</b>：部分手机浏览器（如微信内置浏览器）退出时会自动清理本地数据，如遇保存无效请使用下方「云端同步」功能。
       </div>
     </div>
 
@@ -3395,7 +3407,7 @@ function renderSettings(){
         </div>
         <div>🎨 配色：粉青 · 粉黛 · 灰月 · 沙青 · 烟凝</div>
         <div>🔒 隐私：默认仅存本机；连接云端同步后保存在您自己的 GitHub 仓库</div>
-        <div style="margin-top:8px;color:var(--c-text-3)">v1.0 · 由 WorkBuddy 小台搭建</div>
+        <div style="margin-top:8px;color:var(--c-text-3)">v1.1 · 保存诊断增强版 · 由 WorkBuddy 小台搭建</div>
       </div>
     </div>
   `;
@@ -3406,20 +3418,64 @@ function bindSettings(){
     const btn = $('#manualSaveBtn');
     btn.disabled = true;
     btn.textContent = '正在保存…';
+    const resultBox = $('#saveResultBox');
     try{
       await requestPersistentStorage();
-      const result = await forceSave();
-      if(result.lsOk && result.idbOk){
-        toast('✓ 已保存到本机 · ' + new Date().toLocaleTimeString());
-      }else if(result.idbOk){
-        toast('✓ 已保存（IndexedDB 备份成功）· ' + new Date().toLocaleTimeString());
-      }else if(result.lsOk){
-        toast('✓ 已保存（localStorage）· ' + new Date().toLocaleTimeString());
+      /* 1. 写入 localStorage 并验证 */
+      const json = JSON.stringify(state);
+      let lsWriteOk = false;
+      try{
+        localStorage.setItem(STORE_KEY, json);
+        const readback = localStorage.getItem(STORE_KEY);
+        lsWriteOk = (readback === json);
+      }catch(e){ lsWriteOk = false; }
+      if(lsWriteOk) lsSet('wb_saved_at', String(Date.now()));
+
+      /* 2. 写入 IndexedDB 并验证 */
+      let idbWriteOk = false;
+      try{
+        await idbSet(IDB_DATA, json);
+        await idbSet(IDB_AT, Date.now());
+        const verify = await idbGet(IDB_DATA);
+        idbWriteOk = (verify === json);
+      }catch(e){ idbWriteOk = false; }
+
+      /* 3. 推送云端（如果已连接） */
+      scheduleSyncPush();
+      updateLocalSaveLine();
+
+      /* 4. 显示详细结果 */
+      resultBox.style.display = 'block';
+      const clothCount = (state.clothes||[]).length;
+      const dataSize = (json.length/1024).toFixed(1);
+      let html = '<b>保存结果报告</b><br>';
+      html += '数据：' + clothCount + ' 件衣服 · ' + dataSize + ' KB<br>';
+      html += 'localStorage 写入：' + (lsWriteOk ? '<span style="color:#3A6E58">✓ 成功</span>' : '<span style="color:var(--c-red)">✗ 失败</span>') + '<br>';
+      html += 'IndexedDB 写入：' + (idbWriteOk ? '<span style="color:#3A6E58">✓ 成功</span>' : '<span style="color:var(--c-red)">✗ 失败</span>') + '<br>';
+      html += '保存时间：' + new Date().toLocaleString() + '<br>';
+      if(lsWriteOk && idbWriteOk){
+        html += '<span style="color:#3A6E58"><b>✓ 两层存储均已确认写入成功</b></span>';
+        resultBox.style.background = 'rgba(58,110,88,0.08)';
+        resultBox.style.border = '1px solid rgba(58,110,88,0.2)';
+      }else if(idbWriteOk){
+        html += '<span style="color:#B8860B">⚠ localStorage 写入失败，但 IndexedDB 备份成功。建议连接云端同步。</span>';
+        resultBox.style.background = 'rgba(184,134,11,0.08)';
+        resultBox.style.border = '1px solid rgba(184,134,11,0.2)';
+      }else if(lsWriteOk){
+        html += '<span style="color:#B8860B">⚠ IndexedDB 写入失败，但 localStorage 成功。数据可能在本机保存。</span>';
+        resultBox.style.background = 'rgba(184,134,11,0.08)';
+        resultBox.style.border = '1px solid rgba(184,134,11,0.2)';
       }else{
-        toast('⚠ 保存可能未成功，请尝试连接云端同步','err');
+        html += '<span style="color:var(--c-red)"><b>⚠ 两层存储均写入失败！</b>你的浏览器可能不支持本地存储（如微信内置浏览器/无痕模式）。请使用下方「云端同步」功能保存数据。</span>';
+        resultBox.style.background = 'rgba(232,90,111,0.08)';
+        resultBox.style.border = '1px solid rgba(232,90,111,0.2)';
       }
+      resultBox.innerHTML = html;
     }catch(e){
-      toast('保存出错：'+String(e.message||e),'err');
+      resultBox.style.display = 'block';
+      resultBox.style.background = 'rgba(232,90,111,0.08)';
+      resultBox.style.border = '1px solid rgba(232,90,111,0.2)';
+      resultBox.innerHTML = '<span style="color:var(--c-red)">保存出错：' + esc(String(e.message||e)) + '</span>';
     }
     btn.disabled = false;
     btn.textContent = '💾 手动保存到本机';
