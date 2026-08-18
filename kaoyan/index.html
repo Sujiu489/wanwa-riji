@@ -401,6 +401,18 @@ input:focus,textarea:focus,select:focus{border-color:var(--c-sage)}
 #floatPanel.show{display:block}
 #floatPanel textarea{width:100%;min-height:60px;border:1px solid var(--c-border);border-radius:var(--r-sm);padding:10px;font-size:13px;resize:none;background:var(--bg-card-2)}
 
+/* ===== Auto-save indicator ===== */
+#saveIndicator{position:fixed;left:12px;bottom:12px;z-index:70;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:var(--bg-card);box-shadow:var(--shadow);font-size:11px;color:var(--c-text-3);transition:opacity .3s;pointer-events:none;opacity:0}
+#saveIndicator.show{opacity:1}
+#saveIndicator .dot{width:7px;height:7px;border-radius:50%;background:var(--c-sage);flex-shrink:0;transition:background .3s}
+#saveIndicator.saving .dot{background:var(--c-honey-d);animation:savePulse 1s ease-in-out infinite}
+#saveIndicator.saved .dot{background:var(--c-sage)}
+#saveIndicator.error .dot{background:var(--c-rose-d)}
+#saveIndicator.saving{color:var(--c-text-2)}
+#saveIndicator.saved{color:var(--c-text-3)}
+#saveIndicator.error{color:var(--c-rose-d)}
+@keyframes savePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+
 /* ===== Modal ===== */
 .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
 .modal-mask.show{opacity:1;pointer-events:auto}
@@ -469,6 +481,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--c-sage)}
 
 <!-- ===== App ===== -->
 <div id="app" style="display:none">
+  <div id="saveIndicator"><div class="dot"></div><span id="saveIndicatorText">已就绪</span></div>
   <header id="mobileHeader">
     <button class="hamburger" onclick="toggleSidebar()">☰</button>
     <div class="header-pill">
@@ -551,16 +564,42 @@ function openDB(){
   });
 }
 
+/* Auto-save status indicator */
+var saveStatusTimer=null;
+function setSaveStatus(status){
+  var el=$('#saveIndicator');
+  if(!el) return;
+  el.classList.add('show');
+  el.className='show '+status;
+  var txt=$('#saveIndicatorText');
+  if(!txt) return;
+  if(status==='saving'){
+    txt.textContent='保存中...';
+  }else if(status==='saved'){
+    var t=new Date();
+    var hh=String(t.getHours()).padStart(2,'0');
+    var mm=String(t.getMinutes()).padStart(2,'0');
+    var ss=String(t.getSeconds()).padStart(2,'0');
+    txt.textContent='已自动保存 '+hh+':'+mm+':'+ss;
+  }else if(status==='error'){
+    txt.textContent='保存失败';
+  }
+  if(saveStatusTimer){clearTimeout(saveStatusTimer);saveStatusTimer=null}
+}
+
 /* Debounced save to IndexedDB - fire and forget, 300ms debounce */
 function saveData(){
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
-    if(!db) return;
+    if(!db){setSaveStatus('error');return}
     try{
+      setSaveStatus('saving');
       const tx=db.transaction([STORE_STATE],'readwrite');
       const store=tx.objectStore(STORE_STATE);
       store.put({id:'main',data:state,ts:Date.now()});
-    }catch(e){console.warn('save failed',e)}
+      tx.oncomplete=function(){setSaveStatus('saved')};
+      tx.onerror=function(e){console.warn('save tx failed',e);setSaveStatus('error')};
+    }catch(e){console.warn('save failed',e);setSaveStatus('error')}
   },300);
 }
 
@@ -569,15 +608,18 @@ function manualSave(){
   if(saveTimer){clearTimeout(saveTimer);saveTimer=null}
   if(!db){showToast('⚠️ 数据库未就绪，稍后再试',2000);return}
   try{
+    setSaveStatus('saving');
     const tx=db.transaction([STORE_STATE],'readwrite');
     const store=tx.objectStore(STORE_STATE);
     store.put({id:'main',data:state,ts:Date.now()});
     tx.oncomplete=function(){
+      setSaveStatus('saved');
       showToast('✅ 数据已手动储存到本地',2000);
       updateSettingsStorage();
       updateStorageUsage();
     };
     tx.onerror=function(e){
+      setSaveStatus('error');
       showToast('⚠️ 储存失败: '+(e.target.error&&e.target.error.message||'未知错误'),3000);
     };
   }catch(e){
