@@ -564,6 +564,27 @@ function saveData(){
   },300);
 }
 
+/* Manual save - skip debounce, write immediately, confirm on success */
+function manualSave(){
+  if(saveTimer){clearTimeout(saveTimer);saveTimer=null}
+  if(!db){showToast('⚠️ 数据库未就绪，稍后再试',2000);return}
+  try{
+    const tx=db.transaction([STORE_STATE],'readwrite');
+    const store=tx.objectStore(STORE_STATE);
+    store.put({id:'main',data:state,ts:Date.now()});
+    tx.oncomplete=function(){
+      showToast('✅ 数据已手动储存到本地',2000);
+      updateSettingsStorage();
+      updateStorageUsage();
+    };
+    tx.onerror=function(e){
+      showToast('⚠️ 储存失败: '+(e.target.error&&e.target.error.message||'未知错误'),3000);
+    };
+  }catch(e){
+    showToast('⚠️ 储存失败: '+e.message,3000);
+  }
+}
+
 /* Load from IndexedDB, fallback to localStorage migration */
 function loadData(){
   return new Promise(function(resolve){
@@ -2548,7 +2569,9 @@ function renderSettings(){
     +'<div id="settingsStorage">加载中...</div>'
     +'<div style="font-size:12px;color:var(--c-text-3);margin-top:8px;line-height:1.6">数据存储在IndexedDB中，比localStorage容量大数百倍，数据量大时不会静默丢失。'
     +(state.lastBackup?'<br>上次自动备份：'+state.lastBackup.slice(0,19).replace('T',' '):'<br>尚未自动备份')
-    +'</div></div>';
+    +'</div>'
+    +'<button class="btn btn-primary btn-block" style="margin-top:12px" onclick="manualSave()">💾 立即手动储存到本地</button>'
+    +'</div>';
 
   /* Data backup & restore */
   html+='<div class="card"><div class="card-title"><span class="emoji">💾</span> 数据备份与恢复</div>'
