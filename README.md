@@ -1,49 +1,41 @@
 # 玩娃日记 · SuJiu 的娃柜工作台
 
-BJD 娃娃 + 毛娘业务个人管理工作台（单文件 HTML，无任何外部依赖）。
+BJD 娃娃 + 壮士（毛娘）业务个人管理工作台。单文件 HTML，零外部依赖，离线可用。
 
-## 在线使用
-
-由 **GitHub Pages** 永久托管，手机/电脑均可打开：
+## 在线使用（GitHub Pages 永久托管）
 
 > **https://sujiu489.github.io/wanwa-riji/**
 
+手机浏览器打开后可通过「分享 → 添加到主屏幕」当 App 使用。
+
 ## 功能
 
-- 👗 衣服管理（分类橱窗 / 陈列、筛选、图片上传）
-- 📏 体子管理与尺寸对比
-- 📅 日历与想买清单
-- 📝 记事本（富文本便签）
-- 💗 毛娘业务（工具 / 库存 / 收入 / 单主）
-- ⚙️ 设置：导出 / 导入 JSON 备份
-- 💾 自动保存：每次修改立即写入本机（localStorage + IndexedDB 双层），打开自动恢复
-- ☁️ 云同步（Supabase，可选）：点击侧边栏 ☁ 胶囊即可连接 / 立即同步，多设备数据一致
+- 👗 衣服管理：橱窗 / 陈列双视图、9 固定分类 + 自定义、状态筛选、已补勾选、图片上传
+- 📏 体子管理：9 项尺寸参数、多体子尺寸对比（可放大查看）
+- 📅 日历：想买清单 + 月历视图
+- 📝 记事本：7 种蓝色便签、富文本（加粗 / 斜体 / 下划线 / 列表 / 待办勾选）
+- 💗 壮士业务：工具 / 收入 / 单主三板块，总金额自动统计
+- 🏠 首页：尾款提醒、分类统计、总花费、条形图
+- ⚙️ 设置：JSON 导出 / 导入备份、清空示例 / 恢复出厂
+- 💾 自动保存：数据实时写入本机 localStorage，打开自动恢复
+- ☁️ 云同步（GitHub，可选）：侧边栏「云同步」胶囊，多设备数据一致
 
-## 云同步接入（首次 3 步）
+## 云同步使用（首次 3 步）
 
-1. 在 [supabase.com](https://supabase.com) 免费建项目，SQL Editor 执行（应用设置页有同款可复制）：
+1. 打开工作台 → 点左侧「云同步」胶囊
+2. 填入 GitHub 用户名 / 仓库名（本仓库）/ Personal Access Token（需 repo 权限，[点此生成](https://github.com/settings/tokens/new?scopes=repo)）
+3. 点「保存配置」→ 之后随时「上传到云端」/「从云端拉取」
 
-```sql
-create table if not exists cabinet_data (
-  room text primary key,
-  data jsonb not null,
-  updated_at timestamptz not null default now()
-);
-alter table cabinet_data enable row level security;
-create policy "sync_all" on cabinet_data for all using (true) with check (true);
-```
-
-2. 项目设置 → API，复制 Project URL 和 anon key
-3. 打开工作台 → 点击左侧 ☁ 胶囊 → 填入 URL / 公钥 / 同步码 → 连接云端
-
-多台设备填**同一个同步码**即可互相同步。
+- 令牌仅保存在**本设备浏览器** localStorage，不写入页面、不随备份导出
+- 数据同步到仓库 `.wagui/sync.json`，多台设备填同一仓库 + 令牌即可互相同步
+- 换设备使用顺序：先「从云端拉取」，改完数据后「上传到云端」
 
 ## 数据与隐私
 
-- 数据默认只保存在你自己设备的浏览器本地，任何人打开链接都看不到你的数据
-- 连接云同步后数据存放在你自己的 Supabase 账号
-- 建议定期在「设置 → 导出全部数据备份」留底
+- 数据默认只存在你自己设备的浏览器本地，任何人打开链接都看不到你的数据
+- 开启云同步后数据存放在你自己的 GitHub 仓库（私有仓库需付费版 Pages，公开仓库任何人可看页面但无法读写你的数据）
+- 建议定期在「设置 → 导出备份」留底
 
-## 更新部署
+## 本地运行
 
-`index.html` 即完整应用，修改后 push 到 main 分支，Pages 自动更新。
+`index.html` 即完整应用，下载后双击浏览器打开即可，无需安装任何东西。
